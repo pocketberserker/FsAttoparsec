@@ -180,14 +180,12 @@ module Parser =
       else
         prompt st0 (fun st -> kf(st, ["demandInput"],"not enough bytes")) (fun a -> ks(a, ())) }
 
-  // TODO: modify operator name
-  let (-->) (p: Parser<_>) (n: Parser<_>) = { new Parser<_>() with
-    override this.ToString() = p.Infix("--> " + n.ToString())
+  let (>>.) (p: Parser<_>) (n: Parser<_>) = { new Parser<_>() with
+    override this.ToString() = p.Infix(">>. " + n.ToString())
     member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Apply(s, kf, ks)) }
   
-  // TODO: modify operator name
-  let (<--) (m: Parser<_>) (n: Parser<_>) = { new Parser<_>() with
-    override this.ToString() = m.Infix("<~ " + n.ToString())
+  let (.>>) (m: Parser<_>) (n: Parser<_>) = { new Parser<_>() with
+    override this.ToString() = m.Infix(".>> " + n.ToString())
     member this.Apply(st0, kf, ks) =
       m.Apply(st0, kf, fun (st1, a) -> n.Apply(st1, kf, fun (st2, b) -> ks (st2, a))) }
 
@@ -195,7 +193,7 @@ module Parser =
     override this.ToString() = "ensure(" + (string n) + ")"
     member this.Apply(st0, kf, ks) =
       if String.length st0.Input >= n then ks(st0,())
-      else (demandInput --> ensure n).Apply(st0,kf,ks) }
+      else (demandInput >>. ensure n).Apply(st0,kf,ks) }
 
   let wantInput = { new Parser<bool>() with
     override this.ToString() = "wantInput"
@@ -222,10 +220,10 @@ module Parser =
 
   let elem p what =
     let what = match what with | Some s -> s | None -> "elem(...)"
-    (ensure 1 --> get
+    (ensure 1 >>. get
     >>= (fun s ->
       let c = s.Chars(0)
-      if p c then put(s.Substring(1)) --> ok c
+      if p c then put(s.Substring(1)) >>. ok c
       else error what
     )).AsOpaque(what)
 
@@ -233,7 +231,7 @@ module Parser =
 
   let skip s p what =
     let what = match what with | Some s -> s | None -> "skip(...)"
-    (ensure 1 --> get
+    (ensure 1 >>. get
     >>= (fun s ->
       if p (s.Chars(0)) then put (s.Substring(1))
       else error what
@@ -241,10 +239,10 @@ module Parser =
 
   let takeWith n p what =
     let what = match what with | Some s -> s | None -> "takeWith(...)"
-    (ensure n --> get
+    (ensure n >>. get
     >>= (fun s ->
       let w = s.Substring(0,n)
-      if p w then put (s.Substring(n)) --> ok w
+      if p w then put (s.Substring(n)) >>. ok w
       else error what
     )).AsOpaque(what)
 
@@ -324,7 +322,7 @@ module Parser =
       else kf (st0, [],"endOfInput")
   }
 
-  let phrase (p: Parser<_>) = (p <-- endOfInput).As("phrase" + p.ToString())
+  let phrase (p: Parser<_>) = (p .>> endOfInput).As("phrase" + p.ToString())
 
   let private addDigit (a: decimal) (c: char) = a * 10M + ((decimal (int64  c)) - 48M)
 
@@ -340,17 +338,17 @@ module Parser =
       m.Apply(State.noAdds st0, kf, ks)
   }
 
-  let signedInt = char_ '-' --> decimal_ |> map (~-) <|> char_ '+' --> decimal_ <|> decimal_
+  let signedInt = char_ '-' >>. map (~-) decimal_ <|> (char_ '+' >>. decimal_) <|> decimal_
 
   let scientific = parser {
     let! positive = satisfy (fun c -> c = '-' || c = '+') |> map ((=) '+') <|> ok true
     let! n = decimal_
     let! s =
-      (satisfy ((=) '.') --> takeWhile (System.Char.IsDigit) |> map (fun f -> decimal ((string n) + "." + f))) <|> ok (decimal n)
+      (satisfy ((=) '.') >>. takeWhile (System.Char.IsDigit) |> map (fun f -> decimal ((string n) + "." + f))) <|> ok (decimal n)
     let sCoeff = if positive then s else -s
     return!
       satisfy (fun c -> c = 'e' || c = 'E')
-      --> signedInt.Bind(fun x ->
+      >>. signedInt.Bind(fun x ->
         if int x > System.Int32.MaxValue then error ("Exponent too large: " + string s)
         else ok (s * (decimal (System.Math.Pow(10.0, float x)))))
          <|> ok sCoeff
@@ -393,21 +391,21 @@ module Parser =
     }
 
   let manyTill (p: Parser<_>) (q: Parser<_>) =
-    let rec scan = lazy (q --> ok [] <|> cons p (scan.Force()))
+    let rec scan = lazy (q >>. ok [] <|> cons p (scan.Force()))
     scan.Force().As("manyTill(" + p.ToString() + "," + q.ToString() + ")")
   
   let skipMany (p: Parser<_>) =
-    let rec scan = lazy (p --> (scan.Force()) <|> ok ())
+    let rec scan = lazy (p >>. (scan.Force()) <|> ok ())
     scan.Force().As("skipMany(" + p.ToString() + ")")
 
-  let skipMany1 (p: Parser<_>) = (p --> skipMany p).As("skipMany1(" + p.ToString() + ")")
+  let skipMany1 (p: Parser<_>) = (p >>. skipMany p).As("skipMany1(" + p.ToString() + ")")
 
   let sepBy1 (p: Parser<_>) (s: Parser<_>) =
-    let rec scan = lazy (cons p (s --> (scan.Force()) <|> ok []))
+    let rec scan = lazy (cons p (s >>. (scan.Force()) <|> ok []))
     scan.Force().As("sepBy1(" + p.ToString() + "," + s.ToString() + ")")
 
   let sepBy (p: Parser<_>) (s: Parser<_>) =
-    (cons p (s --> sepBy1 p s) <|> ok []) <|> (ok []).As("sepBy(" + p.ToString() + "," + s.ToString() + ")")
+    (cons p (s >>. sepBy1 p s) <|> ok []) <|> (ok []).As("sepBy(" + p.ToString() + "," + s.ToString() + ")")
 
   let inline parse (m: Parser<_>) init = m.Parse(init)
 
