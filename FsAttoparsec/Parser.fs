@@ -354,8 +354,15 @@ module Parser =
          <|> ok sCoeff
   }
 
+  module private Lazy =
+
+    let cons (m: Parser<_>) (n: Lazy<Parser<_ list>>) = m >>= (fun x -> n.Value |> map (fun xs -> x :: xs))
+    let (>>.) (p: Parser<_>) (n: Lazy<Parser<_>>) = { new Parser<_>() with
+      override this.ToString() = p.Infix(">>. " + n.ToString())
+      member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Value.Apply(s, kf, ks)) }
+
   let many (p: Parser<_>) =
-    let rec manyP = lazy (cons p (manyP.Force()) <|> ok [])
+    let rec manyP = lazy (Lazy.cons p manyP <|> ok [])
     manyP.Force().As("many(" + p.ToString() + ")")
 
   let many1 (p: Parser<_>) = cons p (many p)
@@ -391,18 +398,19 @@ module Parser =
     }
 
   let manyTill (p: Parser<_>) (q: Parser<_>) =
-    let rec scan = lazy (q >>. ok [] <|> cons p (scan.Force()))
-    scan.Force().As("manyTill(" + p.ToString() + "," + q.ToString() + ")")
+    let cons (m: Parser<_>) (n: Lazy<Parser<_ list>>) = m >>= (fun x -> n.Value |> map (fun xs -> x :: xs))
+    let rec scan = lazy (q >>. ok [] <|> cons p scan)
+    scan.Value.As("manyTill(" + p.ToString() + "," + q.ToString() + ")")
   
   let skipMany (p: Parser<_>) =
-    let rec scan = lazy (p >>. (scan.Force()) <|> ok ())
+    let rec scan = lazy (Lazy.(>>.) p scan <|> ok ())
     scan.Force().As("skipMany(" + p.ToString() + ")")
 
   let skipMany1 (p: Parser<_>) = (p >>. skipMany p).As("skipMany1(" + p.ToString() + ")")
 
   let sepBy1 (p: Parser<_>) (s: Parser<_>) =
-    let rec scan = lazy (cons p (s >>. (scan.Force()) <|> ok []))
-    scan.Force().As("sepBy1(" + p.ToString() + "," + s.ToString() + ")")
+    let rec scan = lazy (cons p (Lazy.(>>.) s scan <|> ok []))
+    scan.Value.As("sepBy1(" + p.ToString() + "," + s.ToString() + ")")
 
   let sepBy (p: Parser<_>) (s: Parser<_>) =
     (cons p (s >>. sepBy1 p s) <|> ok []) <|> (ok []).As("sepBy(" + p.ToString() + "," + s.ToString() + ")")
