@@ -418,6 +418,11 @@ module Parser =
   let inline ( *>) x y = lift2 (fun _ z -> z) x y
   let inline ( <*) x y = lift2 (fun z _ -> z) x y
 
+  let choice (xs : Parser<_> list) =
+    (List.foldBack (<|>) xs (error "choice")).As("choice(" + xs.ToString() + " :_*)")
+
+  let opt (m: Parser<_>) = (attempt m |> map Some <|> ok None).As("opt(" + m.ToString() + ")")
+
 module Helper =
 
   open System.Text.RegularExpressions
