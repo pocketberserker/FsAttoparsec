@@ -410,3 +410,9 @@ module Parser =
   let inline parse (m: Parser<_>) init = m.Parse(init)
 
   let parseAll (m: Parser<_>) init = parse (phrase m) init
+
+module Helper =
+
+  open System.Text.RegularExpressions
+
+  let isMatch regex item = Regex.IsMatch(item, regex)
