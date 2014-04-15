@@ -422,7 +422,7 @@ module Parser =
     scan.Value.As("sepBy1(" + p.ToString() + "," + s.ToString() + ")")
 
   let sepBy (p: Parser<_>) (s: Parser<_>) =
-    (cons p (s >>. sepBy1 p s) <|> ok []) <|> (ok []).As("sepBy(" + p.ToString() + "," + s.ToString() + ")")
+    (cons p ((s >>. sepBy1 p s) <|> ok []) <|> ok []).As("sepBy(" + p.ToString() + "," + s.ToString() + ")")
 
   let inline parse (m: Parser<_>) init = m.Parse(init)
 
