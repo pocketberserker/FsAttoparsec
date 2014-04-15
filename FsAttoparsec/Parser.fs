@@ -50,7 +50,7 @@ type State = {
 }
   with
     static member (+) (lhs, rhs) = {
-      Input = lhs.Input + rhs.Input
+      Input = lhs.Input + rhs.Added
       Added = lhs.Added + rhs.Added
       Complete = lhs.Complete || rhs.Complete
     } 
