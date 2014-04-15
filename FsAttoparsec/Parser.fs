@@ -411,6 +411,13 @@ module Parser =
 
   let parseAll (m: Parser<_>) init = parse (phrase m) init
 
+  let inline (<*>) f m = f >>= fun f' -> m >>= fun m' -> ok (f' m')
+  let inline ap m f = f <*> m
+  let inline (<!>) f m = map f m
+  let inline lift2 f a b = ok f <*> a <*> b
+  let inline ( *>) x y = lift2 (fun _ z -> z) x y
+  let inline ( <*) x y = lift2 (fun z _ -> z) x y
+
 module Helper =
 
   open System.Text.RegularExpressions
