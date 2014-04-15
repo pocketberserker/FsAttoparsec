@@ -259,10 +259,19 @@ module Parser =
 
   let parser = ParserBuilder()
 
+  module private List =
+
+    let span pred l =
+      let l = Seq.ofList l
+      let t = l |> Seq.takeWhile pred |> Seq.toList
+      let u = l |> Seq.skipWhile pred |> Seq.toList
+      (t, u)
+
+
   let takeWhile p : Parser<string> =
     let rec inner acc = parser {
       let! x = get
-      let (h, t) = List.partition p (List.ofSeq x)
+      let (h, t) = List.span p (List.ofSeq x)
       do! put (System.String (t |> List.toArray))
       return!
         if List.isEmpty t then
@@ -295,7 +304,7 @@ module Parser =
       |> map (System.String.IsNullOrEmpty)
       >>= (fun b -> when' b demandInput)
     let! s = get
-    let (h, t) = List.partition p (List.ofSeq s)
+    let (h, t) = List.span p (List.ofSeq s)
     do! when' (List.isEmpty h) (error "takeWhile1")
     do! put (System.String(Array.ofList t))
     let h =  System.String(Array.ofList h)

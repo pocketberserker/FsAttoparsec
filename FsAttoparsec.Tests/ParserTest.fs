@@ -40,10 +40,18 @@ module ParserTest =
     check <| fun k s ->
       (k >= 0) ==> lazy (match (take k).Parse(s).Option with | None -> k > String.length s | Some _ -> k <= String.length s)
 
+  module List =
+
+    let span pred l =
+      let l = Seq.ofList l
+      let t = l |> Seq.takeWhile pred |> Seq.toList
+      let u = l |> Seq.skipWhile pred |> Seq.toList
+      (t, u)
+
   [<Test>]
   let ``takeWhile`` () =
     check <| fun w s ->
-      let (h, t) = List.partition ((=) w) (List.ofSeq s)
+      let (h, t) = List.span ((=) w) (List.ofSeq s)
       let h = System.String(Array.ofList h)
       let t = System.String(Array.ofList t)
       s
@@ -58,7 +66,7 @@ module ParserTest =
   let ``takeWhile1`` () =
     check <| fun w s ->
       let sp = cons w s
-      let (h, t) = List.partition (fun x -> x <= w) (List.ofSeq sp)
+      let (h, t) = List.span (fun x -> x <= w) (List.ofSeq sp)
       let h = System.String(Array.ofList h)
       let t = System.String(Array.ofList t)
       sp
