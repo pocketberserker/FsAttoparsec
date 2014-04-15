@@ -149,7 +149,7 @@ module Parser =
 
   open Internal
 
-  let parseOnly input (parser: Parser<_>) =
+  let parseOnly (parser: Parser<_>) input =
     let state = { Input = input; Added = ""; Complete = true }
     let kf =  fun (a, b, c) -> Fail(State.toString a, b, c)
     let ks = fun (a, b) -> Done(State.toString a, b)
@@ -259,7 +259,7 @@ module Parser =
 
   let parser = ParserBuilder()
 
-  let takeWhile p =
+  let takeWhile p : Parser<string> =
     let rec inner acc = parser {
       let! x = get
       let (h, t) = List.partition p (List.ofSeq x)

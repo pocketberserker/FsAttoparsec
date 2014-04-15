@@ -46,12 +46,12 @@ module ParserTest =
       let (h, t) = List.partition ((=) w) (List.ofSeq s)
       let h = System.String(Array.ofList h)
       let t = System.String(Array.ofList t)
-      parser {
+      s
+      |> parseOnly (parser {
         let! hp = takeWhile ((=) w)
         let! tp = takeText
         return (hp, tp)
-      }
-      |> parseOnly s
+      })
       |> ((=) (Choice1Of2 (h, t)))
 
   [<Test>]
@@ -61,12 +61,12 @@ module ParserTest =
       let (h, t) = List.partition (fun x -> x <= w) (List.ofSeq sp)
       let h = System.String(Array.ofList h)
       let t = System.String(Array.ofList t)
-      parser {
+      sp
+      |> parseOnly (parser {
         let! hp = takeWhile1 (fun x -> x <= w)
         let! tp = takeText
         return (hp, tp)
-      }
-      |> parseOnly sp
+      })
       |> ((=) (Choice1Of2 (h, t)))
 
   [<Test>]
@@ -76,4 +76,4 @@ module ParserTest =
   [<Test>]
   let ``endOfInput`` () =
     check <| fun s ->
-      endOfInput |> parseOnly s = (if String.IsNullOrEmpty s then Choice1Of2 () else Choice2Of2 "endOfInput")
+      s |> parseOnly endOfInput = (if String.IsNullOrEmpty s then Choice1Of2 () else Choice2Of2 "endOfInput")
