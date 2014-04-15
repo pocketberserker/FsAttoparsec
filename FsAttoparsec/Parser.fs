@@ -263,7 +263,7 @@ module Parser =
     let rec inner acc = parser {
       let! x = get
       let (h, t) = List.partition p (List.ofSeq x)
-      let! _ = put (System.String (t |> List.toArray))
+      do! put (System.String (t |> List.toArray))
       return!
         if List.isEmpty t then
           wantInput
@@ -290,14 +290,14 @@ module Parser =
   let private when' b (m: Parser<unit>) = if b then m else ok ()
 
   let takeWhile1 p : Parser<string> = parser {
-    let! _ =
+    do!
       get
       |> map (System.String.IsNullOrEmpty)
       >>= (fun b -> when' b demandInput)
     let! s = get
     let (h, t) = List.partition p (List.ofSeq s)
-    let! _ = when' (List.isEmpty h) (error "takeWhile1")
-    let! _ = put (System.String(Array.ofList t))
+    do! when' (List.isEmpty h) (error "takeWhile1")
+    do! put (System.String(Array.ofList t))
     let h =  System.String(Array.ofList h)
     return!
       if List.isEmpty t then takeWhile p |> map (fun x -> h + x) else ok h
