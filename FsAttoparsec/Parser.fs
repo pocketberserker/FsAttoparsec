@@ -97,7 +97,7 @@ type Parser<'T, 'U> () =
     |> Internal.Result.translate
 
 [<AutoOpen>]
-module Combinator =
+module Parser =
 
   open Internal
 
