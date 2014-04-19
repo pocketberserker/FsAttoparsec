@@ -3,8 +3,8 @@
 open NUnit.Framework
 open FsUnit
 open Attoparsec
-open Parser
 open Helper
+open Attoparsec.String
 
 [<TestFixture>]
 module LTSVTest =
@@ -18,10 +18,9 @@ module LTSVTest =
   let label = takeWhile1 (string >> isMatch @"[0-9A-Za-z_\.-]")
   let fieldValue = takeWhile (string >> isMatch "[\x01-\x080\x0B\x0C\x0E-\xFF]")
   let field = (fun k v -> (k, v)) <!> label <*> (string_ (intToCharStr 0x3A) *> fieldValue)
-  let record: Parser<Record> = Map.ofList <!> (sepBy field (string_ (intToCharStr 0x09)))
+  let record: Parser<string, Record> = Map.ofList <!> (sepBy field (string_ (intToCharStr 0x09)))
   let nl = opt (string_ (intToCharStr 0x0D)) *> string_ (intToCharStr 0x0A)
-  let ltsv: Parser<LTSV> = sepBy record nl
-
+  let ltsv: Parser<string, LTSV> = sepBy record nl
   let parseField input = input |> parse field |> ParseResult.feed ""
   let parseRecord input = input |> parse record |> ParseResult.feed ""
   let parseLTSV input = input |> parse ltsv |> ParseResult.feed ""
