@@ -24,7 +24,7 @@ module String =
 
   let satisfy p = satisfy length head tail p
 
-  let skip s p what = skip length head tail s p what
+  let skip p what = skip length head tail p what
 
   let takeWith n p what = takeWith length splitAt n p what
 

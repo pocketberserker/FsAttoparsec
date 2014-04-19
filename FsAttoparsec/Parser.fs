@@ -244,9 +244,7 @@ module Combinator =
 
   let satisfy length head tail p = elem length head tail p (Some "satisfy(...)")
 
-  // TODO: remove argument s
-  // TODO: rename "skipWhile"
-  let skip length head tail s p what =
+  let skip length head tail p what =
     let what = match what with | Some s -> s | None -> "skip(...)"
     (ensure length 1 >>. get
     >>= (fun s ->
