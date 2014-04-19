@@ -158,10 +158,18 @@ module Combinator =
     { new Parser<_, _>() with
     override this.ToString() = "ok(" + a.ToString() + ")"
     member this.Apply(st0, kf, ks) = ks (st0, a) }
+ 
+  let error what =
+    { new Parser<_, _>() with
+      override this.ToString() = "error(" + what + ")"
+      member this.Apply(st0, kf, ks) = kf (st0, [], "Failed reading: " + what) }
   
+  let zero<'T, 'U> : Parser<'T, 'U> = error "zero"
+
   let inline (>>=) p f = bind f p
 
   type ParserBuilder() =
+    member this.Zero() = zero
     member this.Bind(x, f) = x >>= f
     member this.Return(x) = ok x
     member this.ReturnFrom(x) = x
@@ -176,11 +184,6 @@ module Combinator =
     | Fail(_, _, e) -> Choice2Of2 e
     | Done(_, a) -> Choice1Of2 a
     | _ -> failwith "parseOnly: Parser returned a partial result"
-
-  let error what =
-    { new Parser<_, _>() with
-      override this.ToString() = "err(" + what + ")"
-      member this.Apply(st0, kf, ks) = kf (st0, [], "Failed reading: " + what) }
 
   let prompt st kf ks = Partial (fun s ->
     let m = st.Monoid
@@ -251,6 +254,15 @@ module Combinator =
       if p (head s) then put (tail s)
       else error what
     )).AsOpaque(what)
+
+  let rec skipWhile (m: Monoid<_>) dropWhile (p: _ -> bool) : Parser<_, unit> = parser {
+    let! t = get |> map (dropWhile p)
+    do! put t
+    let! input =
+      if t = m.Mempty then wantInput else zero
+    return!
+      if input then skipWhile m dropWhile p else zero
+  }
 
   let takeWith length splitAt n p what =
     let what = match what with | Some s -> s | None -> "takeWith(...)"

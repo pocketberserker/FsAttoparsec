@@ -26,6 +26,11 @@ module String =
 
   let skip p what = skip length head tail p what
 
+  let private dropWhile p (s: string): string =
+    System.String(s |> Seq.skipWhile p |> Seq.toArray)
+
+  let skipWhile p = skipWhile monoid dropWhile p
+
   let takeWith n p what = takeWith length splitAt n p what
 
   let take n = take length splitAt n
