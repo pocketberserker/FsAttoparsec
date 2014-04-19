@@ -19,7 +19,6 @@ type State<'T> = {
         Added = lhs.Monoid.Mappend(lhs.Added, rhs)
     } 
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module State =
   let completed s = { s with Complete = true }
   let noAdds s = { s with Added = s.Monoid.Mempty}
