@@ -63,6 +63,7 @@
     <Compile Include="FsCheck.NUnit.fs" />
     <Compile Include="StringParserTest.fs" />
     <Compile Include="LTSVParserTest.fs" />
+    <Compile Include="BinaryParserTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FsCheck">
