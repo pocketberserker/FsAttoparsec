@@ -9,7 +9,7 @@ open Attoparsec
 open Attoparsec.String
 
 [<TestFixture>]
-module ParserTest =
+module StringParserTest =
 
   let cons w s = (string w) + s
 
