@@ -6,9 +6,9 @@ type Monoid<'T>() =
   abstract member Mappend : 'T * 'T -> 'T
 
 type ParseResult<'T, 'U> =
-  | Fail of input: 'T * stack: string list * message: string
+  | Fail of 'T * string list * string
   | Partial of ('T -> ParseResult<'T, 'U>)
-  | Done of input: 'T * result: 'U
+  | Done of 'T * 'U
   with
     member this.Map(f) =
       match this with

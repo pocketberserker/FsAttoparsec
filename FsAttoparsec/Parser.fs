@@ -26,9 +26,9 @@ module State =
 module Internal =
 
   type Result<'T, 'U> =
-    | Fail of input: 'T * stack: string list * message: string
+    | Fail of 'T * string list * string
     | Partial of ('T -> Result<'T, 'U>)
-    | Done of input: 'T * result: 'U
+    | Done of 'T * 'U
     with
       member this.Translate =
         match this with
