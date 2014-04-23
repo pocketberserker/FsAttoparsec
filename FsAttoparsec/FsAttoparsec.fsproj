@@ -47,6 +47,7 @@
     <Compile Include="Parser.fs" />
     <Compile Include="StringParser.fs" />
     <Compile Include="BinaryParser.fs" />
+    <Compile Include="TokenParser.fs" />
     <Compile Include="Helper.fs" />
   </ItemGroup>
   <PropertyGroup>
