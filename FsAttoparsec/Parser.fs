@@ -366,3 +366,11 @@ module Parser =
     (List.foldBack (<|>) xs (error "choice")).As("choice(" + xs.ToString() + " :_*)")
 
   let opt m = (attempt m |> map Some <|> ok None).As("opt(" + m.ToString() + ")")
+
+  let between pBegin pEnd p = pBegin >>. p .>> pEnd
+
+  let (<?>) (p: Parser<_, _>) message = { new Parser<_, _>() with
+    override this.ToString() = p.Infix("<?> " + message)
+    member this.Apply(st0, kf, ks) =
+      let kf (st, strs, msg) = kf(st, msg :: strs, msg)
+      p.Apply(st0, kf, ks) }
