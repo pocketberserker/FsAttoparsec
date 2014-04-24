@@ -89,3 +89,9 @@ module String =
   let parse (m: Parser<string, _>) init = m.Parse(monoid, init)
 
   let parseAll m init = parse (phrase m) init
+  
+  let oneOf chars = satisfy (Helper.inClass chars)
+  let noneOf chars = satisfy (Helper.inClass chars >> not)
+
+  let alphaNum = satisfy (Helper.inClass "a-zA-Z") <|> satisfy System.Char.IsNumber
+  let letter = satisfy System.Char.IsLetter

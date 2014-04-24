@@ -374,3 +374,5 @@ module Parser =
     member this.Apply(st0, kf, ks) =
       let kf (st, strs, msg) = kf(st, msg :: strs, msg)
       p.Apply(st0, kf, ks) }
+
+  let option x p = p <|> ok x

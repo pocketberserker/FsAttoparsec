@@ -64,6 +64,7 @@
     <Compile Include="StringParserTest.fs" />
     <Compile Include="LTSVParserTest.fs" />
     <Compile Include="BinaryParserTest.fs" />
+    <Compile Include="TokenParserTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FsCheck">
