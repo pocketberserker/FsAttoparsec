@@ -41,13 +41,12 @@ module String =
 
   let private span pred (s: string) =
     let l = (s |> List.ofSeq)
-    let t = l |> Seq.takeWhile pred |> Seq.toList
+    let t: string = System.String(l |> Seq.takeWhile pred |> Seq.toArray)
     let u: string = System.String(l |> Seq.skipWhile pred |> Seq.toArray)
     (t, u)
 
   let takeWhile (p: _ -> bool) : Parser<string, string> =
     takeWhile monoid span p
-    |> map (fun xs -> System.String(Array.ofList xs))
 
   let takeRest = takeRest monoid
 
@@ -62,7 +61,6 @@ module String =
 
   let takeWhile1 p : Parser<string, string> =
     takeWhile1 monoid span p
-    |> map (fun xs -> System.String(Array.ofList xs))
 
   let private addDigit (a: decimal) (c: char) = a * 10M + ((decimal (int64  c)) - 48M)
 

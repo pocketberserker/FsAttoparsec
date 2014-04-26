@@ -40,12 +40,12 @@ module Binary =
   let notByte c = (satisfy ((<>) c)).As("not '" + (string c) + "'")
 
   let private span pred (b: byte []) =
-    let t = b |> Seq.takeWhile pred |> Seq.toList
+    let t = b |> Seq.takeWhile pred |> Seq.toArray
     let u = b |> Seq.skipWhile pred |> Seq.toArray
     (t, u)
 
   let takeWhile (p: _ -> bool) : Parser<byte [], byte []> =
-    takeWhile monoid span p |> map List.toArray
+    takeWhile monoid span p
 
   let takeRest = takeRest monoid
 
@@ -55,7 +55,7 @@ module Binary =
   let bytes (b: byte []) = takeWith (Array.length b) ((=) b) (Some (b.ToString()))
 
   let takeWhile1 p : Parser<byte [], byte[]> =
-    takeWhile1 monoid span p |> map List.toArray
+    takeWhile1 monoid span p
 
   let scan s p = scan monoid head tail (fun n (x: byte []) -> x |> Seq.skip n |> Seq.toArray) s p
 

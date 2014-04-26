@@ -236,10 +236,10 @@ module Parser =
         if m.Mempty = t then
           wantInput
           >>= (fun input ->
-            if input then inner (h :: acc)
-            else ok (h :: acc))
-        else ok(h :: acc) }
-    inner [] |> map (fun xs -> xs |> List.rev |> List.concat)
+            if input then inner (m.Mappend(h, acc))
+            else ok (m.Mappend(h, acc)))
+        else ok(m.Mappend(h, acc)) }
+    inner m.Mempty
 
   let takeRest (m: Monoid<_>) =
     let rec inner acc = parser {
@@ -263,10 +263,10 @@ module Parser =
       >>= (fun b -> when' b demandInput)
     let! s = get
     let (h, t) = span p s
-    do! when' (List.isEmpty h) (error "takeWhile1")
+    do! when' (m.Mempty = h) (error "takeWhile1")
     do! put t
     return!
-      if t = m.Mempty then takeWhile m span p |> map (fun x -> List.append h x) else ok h
+      if t = m.Mempty then takeWhile m span p |> map (fun x -> m.Mappend(h, x)) else ok h
   }
 
   let endOfInput<'T when 'T : equality> = { new Parser<'T, unit>() with
