@@ -2,71 +2,54 @@
 
 module String =
 
-  let private monoid = { new Monoid<string>() with
-    member this.Mempty = ""
-    member this.Mappend(s, t) = s + t
-  }
+  let private monoid = CharString.monoid
 
   module ParseResult =
-    let feed s (result: ParseResult<_, _>) = ParseResult.feed monoid s result
+    let feed s (result: ParseResult<_, _>) = ParseResult.feed monoid (CharString.ofString s) result
     let done_ (result: ParseResult<_, _>) = ParseResult.done_ monoid result
 
-  let parseOnly parser input = parseOnly monoid parser input
+  let parseOnly parser input =
+    let input = CharString.ofString input
+    parseOnly monoid parser input
 
   let ensure n = ensure String.length n
 
-  let inline private length s = String.length s
-  let inline private head (s: string) = s.Chars(0)
-  let inline private tail (s: string) = s.Substring(1)
-  let private splitAt n (s: string) = (s.Substring(0, n), s.Substring(n))
+  let elem p what = elem CharString.length CharString.head CharString.tail p what
 
-  let elem p what = elem length head tail p what
+  let satisfy p = satisfy CharString.length CharString.head CharString.tail p
 
-  let satisfy p = satisfy length head tail p
+  let skip p what = skip CharString.length CharString.head CharString.tail p what
 
-  let skip p what = skip length head tail p what
+  let skipWhile p = skipWhile monoid CharString.skipWhile p
 
-  let private dropWhile p (s: string): string =
-    System.String(s |> Seq.skipWhile p |> Seq.toArray)
+  let takeWith n p what = takeWith CharString.length CharString.splitAt n p what
 
-  let skipWhile p = skipWhile monoid dropWhile p
+  let take n = take CharString.length CharString.splitAt n
 
-  let takeWith n p what = takeWith length splitAt n p what
-
-  let take n = take length splitAt n
-
-  let anyChar: Parser<string, char> = satisfy (fun _ -> true)
+  let anyChar = satisfy (fun _ -> true)
 
   let notChar c = (satisfy ((<>) c)).As("not '" + (string c) + "'")
 
-  let private span pred (s: string) =
-    let l = (s |> List.ofSeq)
-    let t: string = System.String(l |> Seq.takeWhile pred |> Seq.toArray)
-    let u: string = System.String(l |> Seq.skipWhile pred |> Seq.toArray)
-    (t, u)
-
-  let takeWhile (p: _ -> bool) : Parser<string, string> =
-    takeWhile monoid span p
+  let takeWhile (p: _ -> bool) = takeWhile monoid CharString.span p
 
   let takeRest = takeRest monoid
 
   let takeText = takeText monoid List.fold
 
   let char_ c = elem ((=) c) (Some ("'" + (string c) + "'"))
-  let string_ s = takeWith (String.length s) ((=) s) (Some ("\"" + s + "\""))
+  let string_ s = takeWith (CharString.length s) ((=) s) (Some ("\"" + (CharString.toString s) + "\""))
 
   let stringTransform f s what =
     let what = match what with | Some s -> Some s | None -> Some "stringTransform(...)"
-    takeWith (String.length s) (fun x -> f x = f s) what
+    takeWith (String.length s) (fun x -> f x = f (CharString.ofString s)) what
 
-  let takeWhile1 p : Parser<string, string> =
-    takeWhile1 monoid span p
+  let takeWhile1 p = takeWhile1 monoid CharString.span p
 
-  let private addDigit (a: decimal) (c: char) = a * 10M + ((decimal (int64  c)) - 48M)
+  let private addDigit (a: decimal) c = a * 10M + ((decimal (int64  c)) - 48M)
 
   let decimal_ =
-    takeWhile1 System.Char.IsDigit
-    |> map (fun x -> x |> Seq.fold addDigit 0M)
+    takeWhile1 (char >> System.Char.IsDigit)
+    |> map (fun x -> x |> CharString.fold addDigit 0M)
 
   let signedInt = char_ '-' >>. map (~-) decimal_ <|> (char_ '+' >>. decimal_) <|> decimal_
 
@@ -74,7 +57,8 @@ module String =
     let! positive = satisfy (fun c -> c = '-' || c = '+') |> map ((=) '+') <|> ok true
     let! n = decimal_
     let! s =
-      (satisfy ((=) '.') >>. takeWhile (System.Char.IsDigit) |> map (fun f -> decimal ((string n) + "." + f)))
+      (satisfy ((=) '.') >>. takeWhile (char >> System.Char.IsDigit)
+      |> map (fun f -> decimal ((string n) + "." + (CharString.toString f))))
       <|> ok (decimal n)
     let sCoeff = if positive then s else -s
     return!
@@ -84,14 +68,18 @@ module String =
         else ok (s * (decimal (System.Math.Pow(10.0, float x))))) <|> ok sCoeff
   }
 
-  let scan s p = scan monoid head tail (fun n (x: string) -> x.Substring(n)) s p
+  let scan s p = scan monoid CharString.head CharString.tail CharString.skip s p
 
-  let parse (m: Parser<string, _>) init = m.Parse(monoid, init)
+  let parse (m: Parser<_, _>) init =
+    let init = CharString.ofString init
+    m.Parse(monoid, init)
 
   let parseAll m init = parse (phrase m) init
   
-  let oneOf chars = satisfy (Helper.inClass chars)
-  let noneOf chars = satisfy (Helper.inClass chars >> not)
+  let oneOf chars = satisfy (char >> Helper.inClass chars)
+  let noneOf chars = satisfy (char >> Helper.inClass chars >> not)
 
-  let alphaNum = satisfy (Helper.inClass "a-zA-Z") <|> satisfy System.Char.IsNumber
-  let letter = satisfy System.Char.IsLetter
+  let alphaNum =
+    satisfy (char >> Helper.inClass "a-zA-Z")
+    <|> satisfy (char >> System.Char.IsNumber)
+  let letter = satisfy (char >> System.Char.IsLetter)

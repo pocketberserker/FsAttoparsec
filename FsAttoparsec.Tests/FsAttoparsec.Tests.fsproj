@@ -61,6 +61,7 @@
     <None Include="packages.config" />
     <None Include="app.config" />
     <Compile Include="FsCheck.NUnit.fs" />
+    <Compile Include="CharStringTest.fs" />
     <Compile Include="StringParserTest.fs" />
     <Compile Include="LTSVParserTest.fs" />
     <Compile Include="BinaryParserTest.fs" />

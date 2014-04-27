@@ -1,32 +1,32 @@
 ﻿namespace Attoparsec
 
-// port from http://hackage.haskell.org/package/parsec-3.1.5/docs/Text-Parsec-Token.html
+// port from http://hackage.haskell.org/package/parsec-3.1.5/docs/ByteString-Parsec-Token.html
 
 module Token =
 
   type GenLanguageDef<'T> = {
-    CommentStart: string
-    CommentEnd: string
-    CommentLine: string
+    CommentStart: 'T
+    CommentEnd: 'T
+    CommentLine: 'T
     NestedComments: bool
     IdentStart: Parser<'T, char>
     IdentLetter: Parser<'T, char>
     OpStart: Parser<'T, char>
     OpLetter: Parser<'T, char>
-    ReservedNames: string list
-    ReservedOpNames: string list
+    ReservedNames: 'T list
+    ReservedOpNames: 'T list
     CaseSensitive: bool
   }
 
-  type LanguageDef = GenLanguageDef<string>
+  type LanguageDef = GenLanguageDef<CharString>
 
   type GenTokenParser<'T, 'U> = {
-    Identifier: Parser<'T, string>
+    Identifier: Parser<'T, CharString>
     Reserved: string -> Parser<'T, unit>
-    Operator: Parser<'T, string>
+    Operator: Parser<'T, CharString>
     ReservedOp: string -> Parser<'T, unit>
     CharLiteral: Parser<'T, char>
-    StringLiteral: Parser<'T, string>
+    StringLiteral: Parser<'T, CharString>
     Natural: Parser<'T, int>
     Integer: Parser<'T, int>
     Float: Parser<'T, float>
@@ -34,7 +34,7 @@ module Token =
     Decimal: Parser<'T, decimal>
     Hexadecimal: Parser<'T, decimal>
     Octal: Parser<'T, decimal>
-    Symbol: string -> Parser<'T, string>
+    Symbol: string -> Parser<'T, CharString>
     Lexeme: Parser<'T, 'U> -> Parser<'T, 'U>
     WhiteSpace: Parser<'T, unit>
     Parens: Parser<'T, 'U> -> Parser<'T, 'U>
@@ -42,17 +42,17 @@ module Token =
     Angles: Parser<'T, 'U> -> Parser<'T, 'U>
     Brackets: Parser<'T, 'U> -> Parser<'T, 'U>
     Squares: Parser<'T, 'U> -> Parser<'T, 'U>
-    Semi: Parser<'T, string>
-    Comma: Parser<'T, string>
-    Colon: Parser<'T, string>
-    Dot: Parser<'T, string>
+    Semi: Parser<'T, CharString>
+    Comma: Parser<'T, CharString>
+    Colon: Parser<'T, CharString>
+    Dot: Parser<'T, CharString>
     SemiSep: Parser<'T, 'U> -> Parser<'T, 'U list>
     SemiSep1: Parser<'T, 'U> -> Parser<'T, 'U list>
     CommaSep: Parser<'T, 'U> -> Parser<'T, 'U list>
     CommaSep1: Parser<'T, 'U> -> Parser<'T, 'U list>
   }
 
-  type TokenParser<'TResult> = GenTokenParser<string, 'TResult>
+  type TokenParser<'TResult> = GenTokenParser<CharString, 'TResult>
 
   open System
   open Attoparsec.String
@@ -60,7 +60,7 @@ module Token =
 
   module private TokenParserImpl =
 
-    let simpleSpace = skipMany1 (satisfy Char.IsWhiteSpace)
+    let simpleSpace = skipMany1 (satisfy (char >> Char.IsWhiteSpace))
 
     let oneLineComment languageDef = parser {
       let! _ = string_ languageDef.CommentLine
@@ -68,13 +68,12 @@ module Token =
       return ()
     }
 
-    let startEnd languageDef : string =
-      let s =
-        languageDef.CommentStart
-        |> Seq.append languageDef.CommentEnd
-        |> Seq.distinct
-        |> Seq.toArray
-      System.String(s)
+    let oneOf s = oneOf (s |> CharString.toString)
+    let noneOf s = noneOf (s |> CharString.toString)
+
+    let startEnd languageDef =
+      languageDef.CommentStart
+      |> CharString.append languageDef.CommentEnd
 
     let rec inCommentSingle languageDef =
       parser { let! _ = string_ languageDef.CommentEnd in return () }
@@ -105,8 +104,8 @@ module Token =
 
     and multiLineComment languageDef = (string_ languageDef.CommentStart) >>. (inComment languageDef)
 
-    let noLine languageDef = String.IsNullOrEmpty languageDef.CommentLine
-    let noMulti languageDef = String.IsNullOrEmpty languageDef.CommentStart
+    let noLine languageDef = CharString.isEmpty languageDef.CommentLine
+    let noMulti languageDef = CharString.isEmpty languageDef.CommentStart
 
     let whiteSpace languageDef =
       match noLine languageDef, noMulti languageDef with
@@ -121,7 +120,7 @@ module Token =
       return x
     }
 
-    let symbol languageDef name = lexeme languageDef (string_ name)
+    let symbol languageDef name = lexeme languageDef (string_ (CharString.ofString name))
 
     let parens languageDef p = between (symbol languageDef "(") (symbol languageDef ")") p
     let braces languageDef p = between (symbol languageDef "{") (symbol languageDef "}") p
@@ -170,11 +169,17 @@ module Token =
       return char code
     }
 
-    let ascii2codes = ["BS";"HT";"LF";"VT";"FF";"CR";"SO";"SI";"EM";"FS";"GS";"RS";"US";"SP"]
-    let ascii3codes = ["NUL";"SOH";"STX";"ETX";"EOT";"ENQ";"ACK";"BEL";"DLE";"DC1";"DC2";"DC3";"DC4";"NAK";"SYN";"ETB"; "CAN";"SUB";"ESC";"DEL"]
+    let ascii2codes =
+      ["BS";"HT";"LF";"VT";"FF";"CR";"SO";"SI";"EM";"FS";"GS";"RS";"US";"SP"]
+      |> List.map CharString.ofString
+    let ascii3codes =
+      ["NUL";"SOH";"STX";"ETX";"EOT";"ENQ";"ACK";"BEL";"DLE";"DC1";"DC2";"DC3";"DC4";"NAK";"SYN";"ETB"; "CAN";"SUB";"ESC";"DEL"]
+      |> List.map CharString.ofString
 
-    let ascii2 = ['\x08';'\x09';'\x0a';'\x0b';'\x0c';'\x0d';'\x0e';'\x0f';'\x19';'\x1c';'\x1d';'\x1e';'\x1f';'\x20']
-    let ascii3 = ['\x00';'\x01';'\x02';'\x03';'\x04';'\x05';'\x06';'\x07';'\x10';'\x11';'\x12';'\x13';'\x14';'\x15';'\x16';'\x17';'\x18';'\x1a';'\x1b';'\x7f']
+    let ascii2 =
+      ['\x08';'\x09';'\x0a';'\x0b';'\x0c';'\x0d';'\x0e';'\x0f';'\x19';'\x1c';'\x1d';'\x1e';'\x1f';'\x20']
+    let ascii3 =
+      ['\x00';'\x01';'\x02';'\x03';'\x04';'\x05';'\x06';'\x07';'\x10';'\x11';'\x12';'\x13';'\x14';'\x15';'\x16';'\x17';'\x18';'\x1a';'\x1b';'\x7f']
 
     let asciiMap = List.zip (List.append ascii3codes ascii2codes) (List.append ascii3 ascii2)
 
@@ -184,7 +189,7 @@ module Token =
 
     let charControl = parser {
       let! _ = char_ '^'
-      let! code = satisfy (inClass "A-Z")
+      let! code = satisfy (char >> inClass "A-Z")
       return char (int code - int 'A')
     }
 
@@ -195,17 +200,17 @@ module Token =
       return! escapeCode
     }
 
-    let charLetter = satisfy (fun c -> (c <> '\'') && (c <> '\\') && (c > '\026'))
+    let charLetter = satisfy (fun c -> (c <> '\'') && (c <> '\\') && (c > '\026')) |> map char
     
     let characterChar = charLetter <|> charEscape <?> "literal character"
     let charLiteral languageDef =
       lexeme languageDef (between (char_ '\'') (char_ '\'' <?> "end of character") characterChar ) <?> "character"
 
-    let stringLetter = satisfy (fun c -> (c <> '"') && (c <> '\\') && (c > '\026'))
+    let stringLetter = satisfy (fun c -> (c <> '"') && (c <> '\\') && (c > '\026')) |> map char
 
     let escapeEmpty = char_ '&'
     let escapeGap = parser {
-      let! _= many1 (satisfy Char.IsWhiteSpace)
+      let! _= many1 (satisfy (char >> Char.IsWhiteSpace))
       return! char_ '\\' <?> "end of string gap"
     }
     let stringEscape = parser {
@@ -216,22 +221,21 @@ module Token =
         <|> (escapeCode |> map Some)
     }
 
-    let stringChar = (stringLetter |> map Some) <|> stringEscape <?> "string character"
+    let stringChar =
+      (stringLetter |> map Some) <|> stringEscape <?> "string character"
 
     let maybe n f = function
       | None -> n
       | Some x -> f x
 
-    let inline cons x xs = x :: xs
-
-    let stringLiteral languageDef : Parser<string, string> =
+    let stringLiteral languageDef =
       lexeme languageDef (parser {
         let! str = between (char_ '"') (char_ '"' <?> "end of string") (many stringChar)
-        return System.String(List.foldBack (maybe id cons) (List.ofSeq str) [] |> List.toArray)
+        return List.foldBack (maybe id CharString.cons) str CharString.empty
       } <?> "literal string")
 
-    let hexadecimal = oneOf "xX" >>. number 16M hexDigit
-    let octal = oneOf "oO" >>. number 8M octDigit
+    let hexadecimal = oneOf (CharString.ofString "xX") >>. number 16M hexDigit
+    let octal = oneOf (CharString.ofString "oO") >>. number 8M octDigit
 
     let zeroNumber =
       parser {
@@ -263,13 +267,13 @@ module Token =
         if e < 0M then 1.0M / power (-e)
         else pow 10M e
       parser {
-        let! _ = oneOf "eE"
+        let! _ = oneOf (CharString.ofString "eE")
         let! f = sign
         let! e = decimal_ <?> "exponent"
         return power (f e)
       } <?> "exponent"
 
-    let digit = satisfy Char.IsDigit
+    let digit = satisfy (char >> Char.IsDigit)
 
     let fraction =
       let op d f = (f + (float d)) / 10.0
@@ -323,14 +327,14 @@ module Token =
     let reservedOp languageDef name =
       lexeme languageDef (parser {
         let! _ = string_ name
-        return! notFollowedBy (languageDef.OpLetter) <?> ("end of " + name)
+        return! notFollowedBy (languageDef.OpLetter) <?> ("end of " + (CharString.toString name))
       })
 
-    let oper languageDef : Parser<_, string> =
+    let oper languageDef =
       parser {
         let! c = languageDef.OpStart
         let! cs = many languageDef.OpLetter
-        return System.String(Array.ofList (c :: cs))
+        return CharString.cons c (CharString.ofList cs)
       } <?> "operator"
 
     let rec isReserved names name =
@@ -349,7 +353,7 @@ module Token =
       lexeme languageDef (parser {
         let! name = oper languageDef
         return!
-          if isReservedOp languageDef name then error ("reserved operator " + name)
+          if isReservedOp languageDef name then error ("reserved operator " + (CharString.toString name))
           else ok name
       })
 
@@ -357,12 +361,15 @@ module Token =
       let caseChar c =
         if inClass "a-zA-Z" c then char_ (Char.ToLower c) <|> char_ (Char.ToUpper c)
         else char_ c
-      let rec walk = function
-        | [] -> ok ()
-        | c::cs -> (caseChar c <?> name) >>. walk cs
+      let rec walk t =
+        if CharString.isEmpty t then ok ()
+        else
+          let c, cs = CharString.head t, CharString.tail t
+          (caseChar (char c) <?> name) >>. walk cs
+      let name = CharString.ofString name
       if languageDef.CaseSensitive then string_ name
       else parser {
-        do! walk (List.ofSeq name)
+        do! walk name
         return name
       }
 
@@ -376,27 +383,30 @@ module Token =
       if languageDef.CaseSensitive then List.sort languageDef.ReservedNames
       else
         languageDef.ReservedNames
+        |> List.map CharString.toString
         |> List.map (fun (s: string) -> s.ToUpper())
         |> List.sort
+        |> List.map CharString.ofString
 
     let isReservedName languageDef (name: string) =
       let caseName =
         if languageDef.CaseSensitive then name
         else name.ToLower()
-      isReserved (theReservedNames languageDef) caseName
+      isReserved (theReservedNames languageDef) (CharString.ofString caseName)
 
     let ident languageDef =
       parser {
         let! c = languageDef.IdentStart
         let! cs = many languageDef.IdentLetter
-        return System.String(c :: cs |> List.toArray)
+        return CharString.cons c (CharString.ofList cs)
       } <?> "identifier"
 
     let identifier languageDef =
       lexeme languageDef (parser {
         let! name = ident languageDef
+        let name' = CharString.toString name
         return!
-          if isReservedName languageDef name then error ("reserved word " + name)
+          if isReservedName languageDef name' then error ("reserved word " + name')
           else ok name
       })
 
@@ -406,7 +416,7 @@ module Token =
     Identifier = identifier languageDef
     Reserved = reserved languageDef
     Operator = operator languageDef
-    ReservedOp = reservedOp languageDef
+    ReservedOp = CharString.ofString >> (reservedOp languageDef)
     CharLiteral = charLiteral languageDef
     StringLiteral = stringLiteral languageDef
     Natural = natural languageDef |> map int
@@ -437,14 +447,14 @@ module Token =
   module Language =
 
     let empty =
-      let op = oneOf ":!#$%&*+./<=>?@\\^|-~"
+      let op = String.oneOf ":!#$%&*+./<=>?@\\^|-~"
       {
-        CommentStart   = ""
-        CommentEnd     = ""
-        CommentLine    = ""
+        CommentStart   = CharString.empty
+        CommentEnd     = CharString.empty
+        CommentLine    = CharString.empty
         NestedComments = true
-        IdentStart     = letter <|> char_ '_'
-        IdentLetter    = alphaNum <|> oneOf "_'"
+        IdentStart     = letter <|> (char_ '_')
+        IdentLetter    = alphaNum <|> (String.oneOf "_'")
         OpStart        = op
         OpLetter       = op
         ReservedOpNames= []

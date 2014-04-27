@@ -11,7 +11,7 @@ open Attoparsec.String
 [<TestFixture>]
 module StringParserTest =
 
-  let cons w s = (string w) + s
+  let cons (w: char) s = (string w) + s
 
   [<Test>]
   let ``satisfy`` () =
@@ -46,27 +46,18 @@ module StringParserTest =
   [<Test>]
   let ``string`` () =
     check <| fun s t ->
-      (parse (string_ s) (s + t)).Option = Some s
+      (parse (string_ (CharString.ofString s)) (s + t)).Option
+      |> Option.map CharString.toString = Some s
 
   [<Test>]
   let ``takeCount`` () =
     check <| fun k s ->
       (k >= 0) ==> lazy (match (parse (take k) s).Option with | None -> k > String.length s | Some _ -> k <= String.length s)
 
-  module List =
-
-    let span pred l =
-      let l = Seq.ofList l
-      let t = l |> Seq.takeWhile pred |> Seq.toList
-      let u = l |> Seq.skipWhile pred |> Seq.toList
-      (t, u)
-
   [<Test>]
   let ``takeWhile`` () =
     check <| fun w s ->
-      let (h, t) = List.span ((=) w) (List.ofSeq s)
-      let h = System.String(Array.ofList h)
-      let t = System.String(Array.ofList t)
+      let (h, t) = CharString.span ((=) w) (CharString.ofString s)
       s
       |> parseOnly (parser {
         let! hp = takeWhile ((=) w)
@@ -78,17 +69,16 @@ module StringParserTest =
   [<Test>]
   let ``takeWhile1`` () =
     check <| fun w s ->
-      let sp = cons w s
-      let (h, t) = List.span (fun x -> x <= w) (List.ofSeq sp)
-      let h = System.String(Array.ofList h)
-      let t = System.String(Array.ofList t)
+      let sp = CharString.cons w (CharString.ofString s)
+      let (h, t) = CharString.span (fun x -> x <= w) sp
+      let ho = sp |> CharString.toString
       sp
+      |> CharString.toString
       |> parseOnly (parser {
         let! hp = takeWhile1 (fun x -> x <= w)
         let! tp = takeText
-        return (hp, tp)
-      })
-      |> ((=) (Choice1Of2 (h, t)))
+        return (hp, tp) })
+      |> fun x -> x = (Choice1Of2 (h, t))
 
   [<Test>]
   let ``takeWhile1 empty`` () =
