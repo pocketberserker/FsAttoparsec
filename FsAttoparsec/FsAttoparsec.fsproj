@@ -49,6 +49,7 @@
     <Compile Include="StringParser.fs" />
     <Compile Include="BinaryParser.fs" />
     <Compile Include="TokenParser.fs" />
+    <Compile Include="ExperParser.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
