@@ -107,7 +107,10 @@ module Parser =
 
   let ok a =
     { new Parser<_, _>() with
-    override this.ToString() = "ok(" + a.ToString() + ")"
+    override this.ToString() =
+      match box a with
+      | null -> "ok(unit or null)"
+      | _ -> "ok(" + a.ToString() + ")"
     member this.Apply(st0, kf, ks) = ks (st0, a) }
  
   let error what =
