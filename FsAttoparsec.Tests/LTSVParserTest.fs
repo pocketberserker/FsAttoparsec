@@ -12,13 +12,13 @@ module LTSVTest =
   type Record = Map<string, string>
   type LTSV = Record list
 
-  let intToCharStr i = i |> char |> CharString.singleton
+  let intToCharStr i = i |> char |> BmpString.singleton
 
   // see http://ltsv.org/
   let label = takeWhile1 (string >> isMatch @"[0-9A-Za-z_\.-]")
   let fieldValue = takeWhile (string >> isMatch "[\x01-\x080\x0B\x0C\x0E-\xFF]")
   let field =
-    (fun k v -> (CharString.toString k, CharString.toString v))
+    (fun k v -> (BmpString.toString k, BmpString.toString v))
     <!> label <*> (string_ (intToCharStr 0x3A) *> fieldValue)
   let record: Parser<_, Record> =
     Map.ofList <!> (sepBy field (string_ (intToCharStr 0x09)))

@@ -46,8 +46,8 @@ module StringParserTest =
   [<Test>]
   let ``string`` () =
     check <| fun s t ->
-      (parse (string_ (CharString.ofString s)) (s + t)).Option
-      |> Option.map CharString.toString = Some s
+      (parse (string_ (BmpString.ofString s)) (s + t)).Option
+      |> Option.map BmpString.toString = Some s
 
   [<Test>]
   let ``takeCount`` () =
@@ -57,7 +57,7 @@ module StringParserTest =
   [<Test>]
   let ``takeWhile`` () =
     check <| fun w s ->
-      let (h, t) = CharString.span ((=) w) (CharString.ofString s)
+      let (h, t) = BmpString.span ((=) w) (BmpString.ofString s)
       s
       |> parseOnly (parser {
         let! hp = takeWhile ((=) w)
@@ -69,11 +69,11 @@ module StringParserTest =
   [<Test>]
   let ``takeWhile1`` () =
     check <| fun w s ->
-      let sp = CharString.cons w (CharString.ofString s)
-      let (h, t) = CharString.span (fun x -> x <= w) sp
-      let ho = sp |> CharString.toString
+      let sp = BmpString.cons w (BmpString.ofString s)
+      let (h, t) = BmpString.span (fun x -> x <= w) sp
+      let ho = sp |> BmpString.toString
       sp
-      |> CharString.toString
+      |> BmpString.toString
       |> parseOnly (parser {
         let! hp = takeWhile1 (fun x -> x <= w)
         let! tp = takeText

@@ -18,15 +18,15 @@ module Token =
     CaseSensitive: bool
   }
 
-  type LanguageDef = GenLanguageDef<CharString>
+  type LanguageDef = GenLanguageDef<BmpString>
 
   type GenTokenParser<'T, 'U> = {
-    Identifier: Parser<'T, CharString>
+    Identifier: Parser<'T, BmpString>
     Reserved: string -> Parser<'T, unit>
-    Operator: Parser<'T, CharString>
+    Operator: Parser<'T, BmpString>
     ReservedOp: string -> Parser<'T, unit>
     CharLiteral: Parser<'T, char>
-    StringLiteral: Parser<'T, CharString>
+    StringLiteral: Parser<'T, BmpString>
     Natural: Parser<'T, int>
     Integer: Parser<'T, int>
     Float: Parser<'T, float>
@@ -34,7 +34,7 @@ module Token =
     Decimal: Parser<'T, decimal>
     Hexadecimal: Parser<'T, decimal>
     Octal: Parser<'T, decimal>
-    Symbol: string -> Parser<'T, CharString>
+    Symbol: string -> Parser<'T, BmpString>
     Lexeme: Parser<'T, 'U> -> Parser<'T, 'U>
     WhiteSpace: Parser<'T, unit>
     Parens: Parser<'T, 'U> -> Parser<'T, 'U>
@@ -42,17 +42,17 @@ module Token =
     Angles: Parser<'T, 'U> -> Parser<'T, 'U>
     Brackets: Parser<'T, 'U> -> Parser<'T, 'U>
     Squares: Parser<'T, 'U> -> Parser<'T, 'U>
-    Semi: Parser<'T, CharString>
-    Comma: Parser<'T, CharString>
-    Colon: Parser<'T, CharString>
-    Dot: Parser<'T, CharString>
+    Semi: Parser<'T, BmpString>
+    Comma: Parser<'T, BmpString>
+    Colon: Parser<'T, BmpString>
+    Dot: Parser<'T, BmpString>
     SemiSep: Parser<'T, 'U> -> Parser<'T, 'U list>
     SemiSep1: Parser<'T, 'U> -> Parser<'T, 'U list>
     CommaSep: Parser<'T, 'U> -> Parser<'T, 'U list>
     CommaSep1: Parser<'T, 'U> -> Parser<'T, 'U list>
   }
 
-  type TokenParser<'TResult> = GenTokenParser<CharString, 'TResult>
+  type TokenParser<'TResult> = GenTokenParser<BmpString, 'TResult>
 
   open System
   open Attoparsec.String
@@ -68,12 +68,12 @@ module Token =
       return ()
     }
 
-    let oneOf s = oneOf (s |> CharString.toString)
-    let noneOf s = noneOf (s |> CharString.toString)
+    let oneOf s = oneOf (s |> BmpString.toString)
+    let noneOf s = noneOf (s |> BmpString.toString)
 
     let startEnd languageDef =
       languageDef.CommentStart
-      |> CharString.append languageDef.CommentEnd
+      |> BmpString.append languageDef.CommentEnd
 
     let rec inCommentSingle languageDef =
       parser { let! _ = string_ languageDef.CommentEnd in return () }
@@ -104,8 +104,8 @@ module Token =
 
     and multiLineComment languageDef = (string_ languageDef.CommentStart) >>. (inComment languageDef)
 
-    let noLine languageDef = CharString.isEmpty languageDef.CommentLine
-    let noMulti languageDef = CharString.isEmpty languageDef.CommentStart
+    let noLine languageDef = BmpString.isEmpty languageDef.CommentLine
+    let noMulti languageDef = BmpString.isEmpty languageDef.CommentStart
 
     let whiteSpace languageDef =
       match noLine languageDef, noMulti languageDef with
@@ -120,7 +120,7 @@ module Token =
       return x
     }
 
-    let symbol languageDef name = lexeme languageDef (string_ (CharString.ofString name))
+    let symbol languageDef name = lexeme languageDef (string_ (BmpString.ofString name))
 
     let parens languageDef p = between (symbol languageDef "(") (symbol languageDef ")") p
     let braces languageDef p = between (symbol languageDef "{") (symbol languageDef "}") p
@@ -171,10 +171,10 @@ module Token =
 
     let ascii2codes =
       ["BS";"HT";"LF";"VT";"FF";"CR";"SO";"SI";"EM";"FS";"GS";"RS";"US";"SP"]
-      |> List.map CharString.ofString
+      |> List.map BmpString.ofString
     let ascii3codes =
       ["NUL";"SOH";"STX";"ETX";"EOT";"ENQ";"ACK";"BEL";"DLE";"DC1";"DC2";"DC3";"DC4";"NAK";"SYN";"ETB"; "CAN";"SUB";"ESC";"DEL"]
-      |> List.map CharString.ofString
+      |> List.map BmpString.ofString
 
     let ascii2 =
       ['\x08';'\x09';'\x0a';'\x0b';'\x0c';'\x0d';'\x0e';'\x0f';'\x19';'\x1c';'\x1d';'\x1e';'\x1f';'\x20']
@@ -231,11 +231,11 @@ module Token =
     let stringLiteral languageDef =
       lexeme languageDef (parser {
         let! str = between (char_ '"') (char_ '"' <?> "end of string") (many stringChar)
-        return List.foldBack (maybe id CharString.cons) str CharString.empty
+        return List.foldBack (maybe id BmpString.cons) str BmpString.empty
       } <?> "literal string")
 
-    let hexadecimal = oneOf (CharString.ofString "xX") >>. number 16M hexDigit
-    let octal = oneOf (CharString.ofString "oO") >>. number 8M octDigit
+    let hexadecimal = oneOf (BmpString.ofString "xX") >>. number 16M hexDigit
+    let octal = oneOf (BmpString.ofString "oO") >>. number 8M octDigit
 
     let zeroNumber =
       parser {
@@ -267,7 +267,7 @@ module Token =
         if e < 0M then 1.0M / power (-e)
         else pow 10M e
       parser {
-        let! _ = oneOf (CharString.ofString "eE")
+        let! _ = oneOf (BmpString.ofString "eE")
         let! f = sign
         let! e = decimal_ <?> "exponent"
         return power (f e)
@@ -327,14 +327,14 @@ module Token =
     let reservedOp languageDef name =
       lexeme languageDef (parser {
         let! _ = string_ name
-        return! notFollowedBy (languageDef.OpLetter) <?> ("end of " + (CharString.toString name))
+        return! notFollowedBy (languageDef.OpLetter) <?> ("end of " + (BmpString.toString name))
       })
 
     let oper languageDef =
       parser {
         let! c = languageDef.OpStart
         let! cs = many languageDef.OpLetter
-        return CharString.cons c (CharString.ofList cs)
+        return BmpString.cons c (BmpString.ofList cs)
       } <?> "operator"
 
     let rec isReserved names name =
@@ -353,7 +353,7 @@ module Token =
       lexeme languageDef (parser {
         let! name = oper languageDef
         return!
-          if isReservedOp languageDef name then error ("reserved operator " + (CharString.toString name))
+          if isReservedOp languageDef name then error ("reserved operator " + (BmpString.toString name))
           else ok name
       })
 
@@ -362,11 +362,11 @@ module Token =
         if inClass "a-zA-Z" c then char_ (Char.ToLower c) <|> char_ (Char.ToUpper c)
         else char_ c
       let rec walk t =
-        if CharString.isEmpty t then ok ()
+        if BmpString.isEmpty t then ok ()
         else
-          let c, cs = CharString.head t, CharString.tail t
+          let c, cs = BmpString.head t, BmpString.tail t
           (caseChar (char c) <?> name) >>. walk cs
-      let name = CharString.ofString name
+      let name = BmpString.ofString name
       if languageDef.CaseSensitive then string_ name
       else parser {
         do! walk name
@@ -383,28 +383,28 @@ module Token =
       if languageDef.CaseSensitive then List.sort languageDef.ReservedNames
       else
         languageDef.ReservedNames
-        |> List.map CharString.toString
+        |> List.map BmpString.toString
         |> List.map (fun (s: string) -> s.ToUpper())
         |> List.sort
-        |> List.map CharString.ofString
+        |> List.map BmpString.ofString
 
     let isReservedName languageDef (name: string) =
       let caseName =
         if languageDef.CaseSensitive then name
         else name.ToLower()
-      isReserved (theReservedNames languageDef) (CharString.ofString caseName)
+      isReserved (theReservedNames languageDef) (BmpString.ofString caseName)
 
     let ident languageDef =
       parser {
         let! c = languageDef.IdentStart
         let! cs = many languageDef.IdentLetter
-        return CharString.cons c (CharString.ofList cs)
+        return BmpString.cons c (BmpString.ofList cs)
       } <?> "identifier"
 
     let identifier languageDef =
       lexeme languageDef (parser {
         let! name = ident languageDef
-        let name' = CharString.toString name
+        let name' = BmpString.toString name
         return!
           if isReservedName languageDef name' then error ("reserved word " + name')
           else ok name
@@ -416,7 +416,7 @@ module Token =
     Identifier = identifier languageDef
     Reserved = reserved languageDef
     Operator = operator languageDef
-    ReservedOp = CharString.ofString >> (reservedOp languageDef)
+    ReservedOp = BmpString.ofString >> (reservedOp languageDef)
     CharLiteral = charLiteral languageDef
     StringLiteral = stringLiteral languageDef
     Natural = natural languageDef |> map int
@@ -449,9 +449,9 @@ module Token =
     let empty =
       let op = String.oneOf ":!#$%&*+./<=>?@\\^|-~"
       {
-        CommentStart   = CharString.empty
-        CommentEnd     = CharString.empty
-        CommentLine    = CharString.empty
+        CommentStart   = BmpString.empty
+        CommentEnd     = BmpString.empty
+        CommentLine    = BmpString.empty
         NestedComments = true
         IdentStart     = letter <|> (char_ '_')
         IdentLetter    = alphaNum <|> (String.oneOf "_'")

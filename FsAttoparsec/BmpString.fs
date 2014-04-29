@@ -35,16 +35,17 @@ open System
 open System.Collections
 open System.Collections.Generic
 open System.Diagnostics.Contracts
-            
+
+// BMP: Basic Multilingual Plane
 [<CustomEquality; CustomComparison; SerializableAttribute; StructAttribute>]
-type CharString(array: char[], offset: int, count: int) =
-  new (array: char[]) = CharString(array, 0, array.Length)
+type BmpString(array: char[], offset: int, count: int) =
+  new (array: char[]) = BmpString(array, 0, array.Length)
 
   member x.Array = array
   member x.Offset = offset
   member x.Count = count
 
-  static member Compare (a:CharString, b:CharString) =
+  static member Compare (a:BmpString, b:BmpString) =
     let x, o, l = a.Array, a.Offset, a.Count
     let x', o', l' = b.Array, b.Offset, b.Count
     if o = o' && l = l' && x = x' then 0
@@ -57,7 +58,7 @@ type CharString(array: char[], offset: int, count: int) =
 
   override x.Equals(other) = 
     match other with
-    | :? CharString as other' -> CharString.Compare(x, other') = 0
+    | :? BmpString as other' -> BmpString.Compare(x, other') = 0
     | _ -> false
 
   override x.GetHashCode() = hash (x.Array,x.Offset,x.Count)
@@ -103,7 +104,7 @@ type CharString(array: char[], offset: int, count: int) =
   interface System.IComparable with
     member x.CompareTo(other) =
       match other with
-      | :? CharString as other' -> CharString.Compare(x, other')
+      | :? BmpString as other' -> BmpString.Compare(x, other')
       | _ -> invalidArg "other" "Cannot compare a value of another type."
 
   interface System.Collections.Generic.IEnumerable<char> with
@@ -111,54 +112,54 @@ type CharString(array: char[], offset: int, count: int) =
     member x.GetEnumerator() = x.GetEnumerator() :> IEnumerator
   
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module CharString =
+module BmpString =
     
-  let empty = CharString([||])
+  let empty = BmpString([||])
 
-  let singleton c = CharString(Array.create 1 c, 0, 1)
+  let singleton c = BmpString(Array.create 1 c, 0, 1)
 
-  let create arr = CharString(arr, 0, arr.Length)
+  let create arr = BmpString(arr, 0, arr.Length)
 
-  let findIndex pred (bs:CharString) =
+  let findIndex pred (bs:BmpString) =
     Array.FindIndex(bs.Array, bs.Offset, bs.Count, Predicate<_>(pred))
 
-  let ofSeq s = let arr = Array.ofSeq s in CharString(arr, 0, arr.Length)
+  let ofSeq s = let arr = Array.ofSeq s in BmpString(arr, 0, arr.Length)
 
-  let ofList l = CharString(Array.ofList l, 0, l.Length)
+  let ofList l = BmpString(Array.ofList l, 0, l.Length)
 
   let ofString (s:string) = s.ToCharArray() |> create
 
-  let toArray (bs:CharString) =
+  let toArray (bs:BmpString) =
     if bs.Count = 0 then [||]
     else bs.Array.[bs.Offset..(bs.Offset + bs.Count - 1)]
 
-  let toSeq (bs:CharString) = bs :> seq<char>
+  let toSeq (bs:BmpString) = bs :> seq<char>
 
-  let toList (bs:CharString) = List.ofSeq bs
+  let toList (bs:BmpString) = List.ofSeq bs
 
-  let toString (bs:CharString): string = System.String(bs.Array, bs.Offset, bs.Count)
+  let toString (bs:BmpString): string = System.String(bs.Array, bs.Offset, bs.Count)
 
-  let isEmpty (bs:CharString) = 
+  let isEmpty (bs:BmpString) = 
     Contract.Requires(bs.Count >= 0)
     bs.Count <= 0
 
-  let length (bs:CharString) = 
+  let length (bs:BmpString) = 
     Contract.Requires(bs.Count >= 0)
     bs.Count
 
-  let index (bs:CharString) pos =
+  let index (bs:BmpString) pos =
     Contract.Requires(bs.Offset + pos <= bs.Count)
     bs.Array.[bs.Offset + pos]
 
-  let head (bs:CharString) =
+  let head (bs:BmpString) =
     if bs.Count <= 0 then
       failwith "Cannot take the head of an empty CharString."
     else bs.Array.[bs.Offset]
 
-  let tail (bs:CharString) =
+  let tail (bs:BmpString) =
     Contract.Requires(bs.Count >= 1)
     if bs.Count = 1 then empty
-    else CharString(bs.Array, bs.Offset + 1, bs.Count - 1)
+    else BmpString(bs.Array, bs.Offset + 1, bs.Count - 1)
     
   let append a b = 
     if isEmpty a then b
@@ -170,9 +171,9 @@ module CharString =
       let buffer = Array.zeroCreate<char> (l + l')
       Buffer.BlockCopy(x, o * s, buffer, 0, l*s)
       Buffer.BlockCopy(x', o' * s, buffer, l*s, l'*s)
-      CharString(buffer, 0, l+l')
+      BmpString(buffer, 0, l+l')
     
-  let cons hd (bs:CharString) =
+  let cons hd (bs:BmpString) =
     let hd = singleton hd
     if length bs = 0 then hd
     else append hd bs
@@ -185,26 +186,26 @@ module CharString =
         loop tl (f acc hd)
     loop bs seed
   
-  let split pred (bs:CharString) =
+  let split pred (bs:BmpString) =
     if isEmpty bs then empty, empty
     else
       let index = findIndex pred bs
       if index = -1 then bs, empty
       else
         let count = index - bs.Offset
-        CharString(bs.Array, bs.Offset, count),
-        CharString(bs.Array, index, bs.Count - count)
+        BmpString(bs.Array, bs.Offset, count),
+        BmpString(bs.Array, index, bs.Count - count)
     
   let span pred bs = split (not << pred) bs
     
-  let splitAt n (bs:CharString) =
+  let splitAt n (bs:BmpString) =
     Contract.Requires(n >= 0)
     if isEmpty bs then empty, empty
     elif n <= 0 then empty, bs
     elif n >= bs.Count then bs, empty
     else
       let x,o,l = bs.Array, bs.Offset, bs.Count
-      CharString(x, o, n), CharString(x, o + n, l - n)
+      BmpString(x, o, n), BmpString(x, o + n, l - n)
     
   let skip n bs = splitAt n bs |> snd
 
