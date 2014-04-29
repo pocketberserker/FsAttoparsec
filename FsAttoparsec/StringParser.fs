@@ -14,7 +14,7 @@ module String =
     let input = BmpString.ofString input
     parseOnly monoid parser input
 
-  let ensure n = ensure String.length n
+  let ensure n = ensure BmpString.length n
 
   let elem p what = elem BmpString.length BmpString.head BmpString.tail p what
 
@@ -43,7 +43,7 @@ module String =
 
   let stringTransform f s what =
     let what = match what with | Some s -> Some s | None -> Some "stringTransform(...)"
-    takeWith (String.length s) (fun x -> f x = f (BmpString.ofString s)) what
+    takeWith (BmpString.length s) (fun x -> f x = f s) what
 
   let takeWhile1 p = takeWhile1 monoid BmpString.span p
 
