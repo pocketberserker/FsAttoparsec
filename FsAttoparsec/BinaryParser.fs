@@ -1,5 +1,7 @@
 ﻿namespace Attoparsec
 
+open System.Diagnostics.Contracts
+
 module Binary =
 
   let private monoid = { new Monoid<byte []>() with
@@ -16,10 +18,19 @@ module Binary =
   let ensure n = ensure Array.length n
 
   let inline private length s = Array.length s
-  let inline private head (b: byte []) = b.[0]
-  let inline private tail (b: byte []) = b |> Seq.skip 1 |> Seq.toArray
+  let inline private head (b: byte []) =
+    Contract.Requires(b.Length >= 1)
+    b.[0]
+  let inline private tail (b: byte []) =
+    Contract.Requires(b.Length >= 1)
+    if Array.length b = 1 then [||]
+    else b.[ 1 .. ]
   let private splitAt n (b: byte []) =
-    (b |> Seq.take n |> Seq.toArray, b |> Seq.skip n |> Seq.toArray)
+    Contract.Requires(b.Length >= 0)
+    if Array.isEmpty b then ([||], [||])
+    elif n <= 0 then ([||], b)
+    elif n >= b.Length then (b, [||])
+    else (b.[ .. n - 1 ], b.[ n .. ])
 
   let elem p what = elem length head tail p what
 
@@ -27,7 +38,10 @@ module Binary =
 
   let skip p what = skip length head tail p what
 
-  let private dropWhile p (b: byte []) = b |> Seq.skipWhile p |> Seq.toArray
+  let private dropWhile p (b: byte []) =
+    match Array.tryFindIndex p b with
+    | Some i -> splitAt i b |> snd
+    | None -> [||]
 
   let skipWhile p = skipWhile monoid dropWhile p
 
@@ -39,10 +53,12 @@ module Binary =
 
   let notByte c = (satisfy ((<>) c)).As("not '" + (string c) + "'")
 
-  let private span pred (b: byte []) =
-    let t = b |> Seq.takeWhile pred |> Seq.toArray
-    let u = b |> Seq.skipWhile pred |> Seq.toArray
-    (t, u)
+  let private split pred (b: byte []) =
+    match Array.tryFindIndex pred b with
+    | Some i -> splitAt i b
+    | None -> (b, [||])
+
+  let private span pred (b: byte []) = split (not << pred) b
 
   let takeWhile (p: _ -> bool) : Parser<byte [], byte []> =
     takeWhile monoid span p
@@ -57,7 +73,7 @@ module Binary =
   let takeWhile1 p : Parser<byte [], byte[]> =
     takeWhile1 monoid span p
 
-  let scan s p = scan monoid head tail (fun n (x: byte []) -> x |> Seq.skip n |> Seq.toArray) s p
+  let scan s p = scan monoid head tail (fun n (x: byte []) -> x |> splitAt n |> fst) s p
 
   let parse (m: Parser<byte [], _>) init = m.Parse(monoid, init)
 
