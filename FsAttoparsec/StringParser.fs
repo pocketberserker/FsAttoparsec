@@ -70,7 +70,7 @@ module String =
         else ok (s * (decimal (Math.Pow(10.0, float x))))) <|> ok sCoeff
   }
 
-  let scan s p = scan monoid BmpString.head BmpString.tail BmpString.skip s p
+  let scan s p = scan monoid BmpString.head BmpString.tail BmpString.take s p
 
   let parse (m: Parser<_, _>) init =
     let init = BmpString.ofString init
