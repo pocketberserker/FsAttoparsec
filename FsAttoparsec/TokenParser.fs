@@ -60,7 +60,7 @@ module Token =
 
   module private TokenParserImpl =
 
-    let simpleSpace = skipMany1 (satisfy (char >> Char.IsWhiteSpace))
+    let simpleSpace = skipMany1 (satisfy Char.IsWhiteSpace)
 
     let oneLineComment languageDef = parser {
       let! _ = string_ languageDef.CommentLine
@@ -189,7 +189,7 @@ module Token =
 
     let charControl = parser {
       let! _ = char_ '^'
-      let! code = satisfy (char >> inClass "A-Z")
+      let! code = satisfy (inClass "A-Z")
       return char (int code - int 'A')
     }
 
@@ -200,17 +200,17 @@ module Token =
       return! escapeCode
     }
 
-    let charLetter = satisfy (fun c -> (c <> '\'') && (c <> '\\') && (c > '\026')) |> map char
+    let charLetter = satisfy (fun c -> (c <> '\'') && (c <> '\\') && (c > '\026'))
     
     let characterChar = charLetter <|> charEscape <?> "literal character"
     let charLiteral languageDef =
       lexeme languageDef (between (char_ '\'') (char_ '\'' <?> "end of character") characterChar ) <?> "character"
 
-    let stringLetter = satisfy (fun c -> (c <> '"') && (c <> '\\') && (c > '\026')) |> map char
+    let stringLetter = satisfy (fun c -> (c <> '"') && (c <> '\\') && (c > '\026'))
 
     let escapeEmpty = char_ '&'
     let escapeGap = parser {
-      let! _= many1 (satisfy (char >> Char.IsWhiteSpace))
+      let! _= many1 (satisfy Char.IsWhiteSpace)
       return! char_ '\\' <?> "end of string gap"
     }
     let stringEscape = parser {
@@ -273,7 +273,7 @@ module Token =
         return power (f e)
       } <?> "exponent"
 
-    let digit = satisfy (char >> Char.IsDigit)
+    let digit = satisfy Char.IsDigit
 
     let fraction =
       let op d f = (f + (float d)) / 10.0
