@@ -1,5 +1,7 @@
 ﻿namespace Attoparsec
 
+open System
+
 module String =
 
   let private monoid = BmpString.monoid
@@ -48,7 +50,7 @@ module String =
   let private addDigit (a: decimal) c = a * 10M + ((decimal (int64  c)) - 48M)
 
   let decimal_ =
-    takeWhile1 (char >> System.Char.IsDigit)
+    takeWhile1 Char.IsDigit
     |> map (fun x -> x |> BmpString.fold addDigit 0M)
 
   let signedInt = char_ '-' >>. map (~-) decimal_ <|> (char_ '+' >>. decimal_) <|> decimal_
@@ -57,15 +59,15 @@ module String =
     let! positive = satisfy (fun c -> c = '-' || c = '+') |> map ((=) '+') <|> ok true
     let! n = decimal_
     let! s =
-      (satisfy ((=) '.') >>. takeWhile (char >> System.Char.IsDigit)
+      (satisfy ((=) '.') >>. takeWhile Char.IsDigit
       |> map (fun f -> decimal ((string n) + "." + (BmpString.toString f))))
       <|> ok (decimal n)
     let sCoeff = if positive then s else -s
     return!
       satisfy (fun c -> c = 'e' || c = 'E')
       >>. signedInt.Bind(fun x ->
-        if int x > System.Int32.MaxValue then error ("Exponent too large: " + string s)
-        else ok (s * (decimal (System.Math.Pow(10.0, float x))))) <|> ok sCoeff
+        if int x > Int32.MaxValue then error ("Exponent too large: " + string s)
+        else ok (s * (decimal (Math.Pow(10.0, float x))))) <|> ok sCoeff
   }
 
   let scan s p = scan monoid BmpString.head BmpString.tail BmpString.skip s p
@@ -76,10 +78,10 @@ module String =
 
   let parseAll m init = parse (phrase m) init
   
-  let oneOf chars = satisfy (char >> Helper.inClass chars)
-  let noneOf chars = satisfy (char >> Helper.inClass chars >> not)
+  let oneOf chars = satisfy (Helper.inClass chars)
+  let noneOf chars = satisfy (Helper.inClass chars >> not)
 
   let alphaNum =
-    satisfy (char >> Helper.inClass "a-zA-Z")
-    <|> satisfy (char >> System.Char.IsNumber)
-  let letter = satisfy (char >> System.Char.IsLetter)
+    satisfy (Helper.inClass "a-zA-Z")
+    <|> satisfy Char.IsNumber
+  let letter = satisfy Char.IsLetter
