@@ -38,7 +38,6 @@ module Internal =
 
   module Result =
     let inline translate (result: Result<_, _>) = result.Translate
-    let push s (Fail(input, stack, message)) = Fail(input, s :: stack, message)
 
 type Failure<'T, 'U> = State<'T> * string list * string -> Internal.Result<'T, 'U>
 type Success<'T, 'U, 'V> = State<'T> * 'U -> Internal.Result<'T, 'V>
@@ -359,7 +358,6 @@ module Parser =
       .As("sepBy(" + p.ToString() + "," + s.ToString() + ")")
 
   let inline (<*>) f m = f >>= fun f' -> m >>= fun m' -> ok (f' m')
-  let inline ap m f = f <*> m
   let inline (<!>) f m = map f m
   let inline lift2 f a b = ok f <*> a <*> b
   let inline ( *>) x y = lift2 (fun _ z -> z) x y
