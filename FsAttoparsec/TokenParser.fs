@@ -164,8 +164,8 @@ module Token =
     let charNum = parser {
       let! code =
         decimal_
-        <|> (char_ 'o' >>= (fun _ -> number 8M octDigit))
-        <|> (char_ 'x' >>= (fun _ -> number 16M hexDigit))
+        <|> (char_ 'o' >>. number 8M octDigit)
+        <|> (char_ 'x' >>. number 16M hexDigit)
       return char code
     }
 
