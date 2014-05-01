@@ -247,8 +247,7 @@ module Parser =
     let rec inner acc = parser {
       let! input = wantInput
       return!
-        if input then
-          get >>= (fun s -> put m.Mempty >>= (fun () -> inner (s :: acc)))
+        if input then get >>= (fun s -> put m.Mempty >>. inner (s :: acc))
         else ok (List.rev acc)
     }
     inner []
@@ -256,16 +255,13 @@ module Parser =
   let takeText (m: Monoid<_>) fold =
     takeRest m |> map (fold (fun a b -> m.Mappend(a, b)) m.Mempty)
 
-  let private when' b (m: Parser<_, unit>) = if b then m else ok ()
+  let private when' (m: Parser<_, unit>) b = if b then m else ok ()
 
   let takeWhile1 (m: Monoid<_>) span p = parser {
-    do!
-      get
-      |> map (fun x -> x = m.Mempty)
-      >>= (fun b -> when' b demandInput)
+    do! get |> map ((=) m.Mempty) >>= when' demandInput
     let! s = get
     let (h, t) = span p s
-    do! when' (m.Mempty = h) (error "takeWhile1")
+    do! when' (error "takeWhile1") (m.Mempty = h) 
     do! put t
     return!
       if t = m.Mempty then takeWhile m span p |> map (fun x -> m.Mappend(h, x)) else ok h
@@ -324,9 +320,8 @@ module Parser =
       return!
         match scanner s 0 input with
         | Continue sp ->
-          put m.Mempty >>= (fun () ->
-            wantInput
-            >>= (fun more -> if more then inner (input :: acc) sp else ok (input :: acc)))
+          put m.Mempty >>. wantInput
+          >>= (fun more -> if more then inner (input :: acc) sp else ok (input :: acc))
         | Finished(n, t) ->
           let i = input |> take n
           put t >>= (fun () -> ok (i :: acc))
