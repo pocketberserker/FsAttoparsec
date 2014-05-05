@@ -153,7 +153,7 @@ module BmpString =
 
   let head (bs:BmpString) =
     if bs.Count <= 0 then
-      failwith "Cannot take the head of an empty CharString."
+      failwith "Cannot take the head of an empty BmpString."
     else bs.Array.[bs.Offset]
 
   let tail (bs:BmpString) =
