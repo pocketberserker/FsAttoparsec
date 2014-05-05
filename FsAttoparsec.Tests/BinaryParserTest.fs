@@ -11,13 +11,14 @@ open Attoparsec.Binary
 [<TestFixture>]
 module BinaryParserTest =
 
-  let cons b xs = Array.append [| b |] xs
+  module Array =
+    let cons b xs = Array.append [| b |] xs
 
   [<Test>]
   let ``satisfy`` () =
     check <| fun b xs ->
       let actual =
-        cons b xs
+        Array.cons b xs
         |> parse (satisfy (fun x -> x <= b))
         |> ParseResult.option
       actual = Some b
@@ -26,7 +27,7 @@ module BinaryParserTest =
   let ``byte`` () =
     check <| fun b xs ->
       let actual =
-        cons b xs
+        Array.cons b xs
         |> parse (byte_ b)
         |> ParseResult.option
       actual = Some b
@@ -46,25 +47,21 @@ module BinaryParserTest =
   [<Test>]
   let ``bytes`` () =
     check <| fun s t ->
-      (parse (bytes s) (Array.append s t)).Option = Some s
+      (parse (bytes s) (Array.append s t)).Option = Some (BinaryArray.ofArray s)
 
   [<Test>]
   let ``takeCount`` () =
     check <| fun k s ->
-      (k >= 0) ==> lazy (match (parse (take k) s).Option with | None -> k > Array.length s | Some _ -> k <= Array.length s)
-
-  module Array =
-
-    let span pred (b: byte []) =
-      let t = b |> Seq.takeWhile pred |> Seq.toList
-      let u = b |> Seq.skipWhile pred |> Seq.toArray
-      (t, u)
+      (k >= 0) ==> lazy (
+        match (parse (take k) s).Option with
+        | None -> k > Array.length s
+        | Some _ -> k <= Array.length s)
 
   [<Test>]
   let ``takeWhile`` () =
     check <| fun b xs ->
-      let (h, t) = Array.span ((=) b) xs
-      let h = Array.ofList h
+      let s = BinaryArray.ofArray xs
+      let (h, t) = BinaryArray.span ((=) b) s
       xs
       |> parseOnly (parser {
         let! hp = takeWhile ((=) b)
@@ -76,9 +73,9 @@ module BinaryParserTest =
   [<Test>]
   let ``takeWhile1`` () =
     check <| fun b xs ->
-      let sp = cons b xs
-      let (h, t) = Array.span (fun x -> x <= b) sp
-      let h = Array.ofList h
+      let sp = Array.cons b xs
+      let s = BinaryArray.ofArray sp
+      let (h, t) = BinaryArray.span (fun x -> x <= b) s
       sp
       |> parseOnly (parser {
         let! hp = takeWhile1 (fun x -> x <= b)

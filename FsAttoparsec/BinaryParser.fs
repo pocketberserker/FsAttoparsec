@@ -2,84 +2,53 @@
 
 open System.Diagnostics.Contracts
 
-module private Array =
-
-  let head (b: byte []) =
-    Contract.Requires(b.Length >= 1)
-    b.[0]
-
-  let tail (b: byte []) =
-    Contract.Requires(b.Length >= 1)
-    if Array.length b = 1 then [||]
-    else b.[ 1 .. ]
-
-  let splitAt n (b: byte []) =
-    Contract.Requires(b.Length >= 0)
-    if Array.isEmpty b then ([||], [||])
-    elif n <= 0 then ([||], b)
-    elif n >= b.Length then (b, [||])
-    else (b.[ .. n - 1 ], b.[ n .. ])
-  
-  let skipWhile p (b: byte []) =
-    match Array.tryFindIndex p b with
-    | Some i -> splitAt i b |> snd
-    | None -> [||]
-
-  let split pred (b: byte []) =
-    match Array.tryFindIndex pred b with
-    | Some i -> splitAt i b
-    | None -> (b, [||])
-
-  let span pred (b: byte []) = split (not << pred) b
-
-  let take n b = b |> splitAt n |> fst
-
 module Binary =
 
-  let private monoid = { new Monoid<byte []>() with
-    member this.Mempty = [||]
-    member this.Mappend(s, t) = Array.append s t
-  }
-
   module ParseResult =
-    let feed s (result: ParseResult<_, _>) = ParseResult.feed monoid s result
-    let done_ (result: ParseResult<_, _>) = ParseResult.done_ monoid result
+    let feed s (result: ParseResult<_, _>) = ParseResult.feed BinaryArray.monoid s result
+    let done_ (result: ParseResult<_, _>) = ParseResult.done_ BinaryArray.monoid result
 
-  let parseOnly parser input = parseOnly monoid parser input
+  let parseOnly parser input =
+    let input = BinaryArray.ofArray input
+    parseOnly BinaryArray.monoid parser input
 
-  let ensure n = ensure Array.length n
+  let ensure n = ensure BinaryArray.length n
 
-  let elem p what = elem Array.length Array.head Array.tail p what
+  let elem p what = elem BinaryArray.length BinaryArray.head BinaryArray.tail p what
 
-  let satisfy p = satisfy Array.length Array.head Array.tail p
+  let satisfy p = satisfy BinaryArray.length BinaryArray.head BinaryArray.tail p
 
-  let skip p what = skip Array.length Array.head Array.tail p what
+  let skip p what = skip BinaryArray.length BinaryArray.head BinaryArray.tail p what
 
-  let skipWhile p = skipWhile monoid Array.skipWhile p
+  let skipWhile p = skipWhile BinaryArray.monoid BinaryArray.skipWhile p
 
-  let takeWith n p what = takeWith Array.length Array.splitAt n p what
+  let takeWith n p what = takeWith BinaryArray.length BinaryArray.splitAt n p what
 
-  let take n = take Array.length Array.splitAt n
+  let take n = take BinaryArray.length BinaryArray.splitAt n
 
-  let anyByte: Parser<byte [], byte> = satisfy (fun _ -> true)
+  let anyByte = satisfy (fun _ -> true)
 
   let notByte c = (satisfy ((<>) c)).As("not '" + (string c) + "'")
 
-  let takeWhile (p: _ -> bool) : Parser<byte [], byte []> =
-    takeWhile monoid Array.span p
+  let takeWhile (p: _ -> bool) =
+    takeWhile BinaryArray.monoid BinaryArray.span p
 
-  let takeRest = takeRest monoid
+  let takeRest = takeRest BinaryArray.monoid
 
-  let takeText = takeText monoid List.fold
+  let takeText = takeText BinaryArray.monoid List.fold
 
   let byte_ c = elem ((=) c) (Some ("'" + (string c) + "'"))
-  let bytes (b: byte []) = takeWith (Array.length b) ((=) b) (Some (b.ToString()))
+  let bytes b =
+    let b = BinaryArray.ofArray b
+    takeWith (BinaryArray.length b) ((=) b) (Some (b.ToString()))
 
-  let takeWhile1 p : Parser<byte [], byte[]> =
-    takeWhile1 monoid Array.span p
+  let takeWhile1 p =
+    takeWhile1 BinaryArray.monoid BinaryArray.span p
 
-  let scan s p = scan monoid Array.head Array.tail Array.take s p
+  let scan s p = scan BinaryArray.monoid BinaryArray.head BinaryArray.tail BinaryArray.take s p
   
-  let parse (m: Parser<byte [], _>) init = m.Parse(monoid, init)
+  let parse (m: Parser<BinaryArray, _>) init =
+    let init = BinaryArray.create init
+    m.Parse(BinaryArray.monoid, init)
 
   let parseAll m init = parse (phrase m) init

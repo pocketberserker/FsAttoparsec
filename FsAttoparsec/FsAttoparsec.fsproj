@@ -48,6 +48,7 @@
     <Compile Include="Helper.fs" />
     <Compile Include="BmpString.fs" />
     <Compile Include="StringParser.fs" />
+    <Compile Include="Binary.fs" />
     <Compile Include="BinaryParser.fs" />
     <Compile Include="TokenParser.fs" />
     <Compile Include="ExperParser.fs" />
