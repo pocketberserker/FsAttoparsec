@@ -14,3 +14,7 @@ module Helper =
     inner (List.ofSeq s) |> Seq.distinct
 
   let inClass (s: string) c = charClass s |> Seq.exists ((=) c)
+
+  let (|Bmp|) s = BmpString.ofString s
+
+  let (|Bin|) array = BinaryArray.create array

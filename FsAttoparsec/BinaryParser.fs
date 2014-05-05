@@ -1,6 +1,7 @@
 ﻿namespace Attoparsec
 
 open System.Diagnostics.Contracts
+open Helper
 
 module Binary =
 
@@ -8,8 +9,7 @@ module Binary =
     let feed s (result: ParseResult<_, _>) = ParseResult.feed BinaryArray.monoid s result
     let done_ (result: ParseResult<_, _>) = ParseResult.done_ BinaryArray.monoid result
 
-  let parseOnly parser input =
-    let input = BinaryArray.ofArray input
+  let parseOnly parser (Bin input) =
     parseOnly BinaryArray.monoid parser input
 
   let ensure n = ensure BinaryArray.length n
@@ -38,8 +38,7 @@ module Binary =
   let takeText = takeText BinaryArray.monoid List.fold
 
   let byte_ c = elem ((=) c) (Some ("'" + (string c) + "'"))
-  let bytes b =
-    let b = BinaryArray.ofArray b
+  let bytes (Bin b) =
     takeWith (BinaryArray.length b) ((=) b) (Some (b.ToString()))
 
   let takeWhile1 p =
@@ -47,8 +46,7 @@ module Binary =
 
   let scan s p = scan BinaryArray.monoid BinaryArray.head BinaryArray.tail BinaryArray.take s p
   
-  let parse (m: Parser<BinaryArray, _>) init =
-    let init = BinaryArray.create init
+  let parse (m: Parser<BinaryArray, _>) (Bin init) =
     m.Parse(BinaryArray.monoid, init)
 
   let parseAll m init = parse (phrase m) init

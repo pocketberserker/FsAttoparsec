@@ -46,7 +46,7 @@ module StringParserTest =
   [<Test>]
   let ``string`` () =
     check <| fun s t ->
-      (parse (string_ (BmpString.ofString s)) (s + t)).Option
+      (parse (string_ s) (s + t)).Option
       |> Option.map BmpString.toString = Some s
 
   [<Test>]

@@ -12,7 +12,7 @@ module LTSVTest =
   type Record = Map<string, string>
   type LTSV = Record list
 
-  let intToCharStr i = i |> char |> BmpString.singleton
+  let intToCharStr i = i |> char |> string
 
   // see http://ltsv.org/
   let label = takeWhile1 (string >> isMatch @"[0-9A-Za-z_\.-]")

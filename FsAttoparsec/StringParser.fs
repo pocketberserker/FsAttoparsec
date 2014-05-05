@@ -1,6 +1,7 @@
 ﻿namespace Attoparsec
 
 open System
+open Helper
 
 module String =
 
@@ -39,9 +40,11 @@ module String =
   let takeText = takeText monoid List.fold
 
   let char_ c = elem ((=) c) (Some ("'" + (string c) + "'"))
-  let string_ s = takeWith (BmpString.length s) ((=) s) (Some ("\"" + (BmpString.toString s) + "\""))
+  
+  let string_ (Bmp s) =
+    takeWith (BmpString.length s) ((=) s) (Some ("\"" + (BmpString.toString s) + "\""))
 
-  let stringTransform f s what =
+  let stringTransform f (Bmp s) what =
     let what = match what with | Some s -> Some s | None -> Some "stringTransform(...)"
     takeWith (BmpString.length s) (fun x -> f x = f s) what
 
@@ -72,9 +75,7 @@ module String =
 
   let scan s p = scan monoid BmpString.head BmpString.tail BmpString.take s p
 
-  let parse (m: Parser<_, _>) init =
-    let init = BmpString.ofString init
-    m.Parse(monoid, init)
+  let parse (m: Parser<_, _>) (Bmp init) = m.Parse(monoid, init)
 
   let parseAll m init = parse (phrase m) init
   
@@ -82,6 +83,6 @@ module String =
   let noneOf chars = satisfy (Helper.inClass chars >> not)
 
   let alphaNum =
-    satisfy (Helper.inClass "a-zA-Z")
+    satisfy (inClass "a-zA-Z")
     <|> satisfy Char.IsNumber
   let letter = satisfy Char.IsLetter

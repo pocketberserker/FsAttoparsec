@@ -62,8 +62,10 @@ module Token =
 
     let simpleSpace = skipMany1 (satisfy Char.IsWhiteSpace)
 
-    let oneLineComment languageDef = parser {
-      let! _ = string_ languageDef.CommentLine
+    let oneLineComment languageDef =
+      let commentLine = BmpString.toString languageDef.CommentLine
+      parser {
+      let! _ = string_ commentLine
       do! skipMany (satisfy ((<>) '\n'))
       return ()
     }
@@ -76,7 +78,8 @@ module Token =
       |> BmpString.append languageDef.CommentEnd
 
     let rec inCommentSingle languageDef =
-      parser { let! _ = string_ languageDef.CommentEnd in return () }
+      let commentEnd = BmpString.toString languageDef.CommentEnd
+      (string_ commentEnd >>. ok ())
       <|> parser {
         do! skipMany1 (noneOf (startEnd languageDef))
         return! inCommentSingle languageDef }
@@ -90,7 +93,8 @@ module Token =
       else inCommentSingle languageDef
 
     and inCommentMulti languageDef =
-      parser { let! _ = string_ languageDef.CommentEnd in return () }
+      let commentEnd = BmpString.toString languageDef.CommentEnd
+      (string_ commentEnd >>. ok ())
       <|> parser {
         do! multiLineComment languageDef
         return! inCommentMulti languageDef }
@@ -102,7 +106,9 @@ module Token =
         return! inCommentMulti languageDef }
       <?> "end of comment"
 
-    and multiLineComment languageDef = (string_ languageDef.CommentStart) >>. (inComment languageDef)
+    and multiLineComment languageDef =
+      let commentStart = BmpString.toString languageDef.CommentStart
+      (string_ commentStart) >>. (inComment languageDef)
 
     let noLine languageDef = BmpString.isEmpty languageDef.CommentLine
     let noMulti languageDef = BmpString.isEmpty languageDef.CommentStart
@@ -120,7 +126,7 @@ module Token =
       return x
     }
 
-    let symbol languageDef name = lexeme languageDef (string_ (BmpString.ofString name))
+    let symbol languageDef name = lexeme languageDef (string_ name)
 
     let parens languageDef p = between (symbol languageDef "(") (symbol languageDef ")") p
     let braces languageDef p = between (symbol languageDef "{") (symbol languageDef "}") p
@@ -171,10 +177,8 @@ module Token =
 
     let ascii2codes =
       ["BS";"HT";"LF";"VT";"FF";"CR";"SO";"SI";"EM";"FS";"GS";"RS";"US";"SP"]
-      |> List.map BmpString.ofString
     let ascii3codes =
       ["NUL";"SOH";"STX";"ETX";"EOT";"ENQ";"ACK";"BEL";"DLE";"DC1";"DC2";"DC3";"DC4";"NAK";"SYN";"ETB"; "CAN";"SUB";"ESC";"DEL"]
-      |> List.map BmpString.ofString
 
     let ascii2 =
       ['\x08';'\x09';'\x0a';'\x0b';'\x0c';'\x0d';'\x0e';'\x0f';'\x19';'\x1c';'\x1d';'\x1e';'\x1f';'\x20']
@@ -327,7 +331,7 @@ module Token =
     let reservedOp languageDef name =
       lexeme languageDef (parser {
         let! _ = string_ name
-        return! notFollowedBy (languageDef.OpLetter) <?> ("end of " + (BmpString.toString name))
+        return! notFollowedBy (languageDef.OpLetter) <?> ("end of " + name)
       })
 
     let oper languageDef =
@@ -366,12 +370,13 @@ module Token =
         else
           let c, cs = BmpString.head t, BmpString.tail t
           (caseChar (char c) <?> name) >>. walk cs
-      let name = BmpString.ofString name
       if languageDef.CaseSensitive then string_ name
-      else parser {
-        do! walk name
-        return name
-      }
+      else
+        let name = BmpString.ofString name
+        parser {
+          do! walk name
+          return name
+        }
 
     let reserved languageDef name =
       lexeme languageDef (parser {
@@ -389,10 +394,10 @@ module Token =
         |> List.map BmpString.ofString
 
     let isReservedName languageDef (name: string) =
-      let caseName =
+      let (Bmp caseName) =
         if languageDef.CaseSensitive then name
         else name.ToLower()
-      isReserved (theReservedNames languageDef) (BmpString.ofString caseName)
+      isReserved (theReservedNames languageDef) caseName
 
     let ident languageDef =
       parser {
@@ -416,7 +421,7 @@ module Token =
     Identifier = identifier languageDef
     Reserved = reserved languageDef
     Operator = operator languageDef
-    ReservedOp = BmpString.ofString >> (reservedOp languageDef)
+    ReservedOp = reservedOp languageDef
     CharLiteral = charLiteral languageDef
     StringLiteral = stringLiteral languageDef
     Natural = natural languageDef |> map int
