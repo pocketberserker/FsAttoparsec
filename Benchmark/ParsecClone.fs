@@ -78,3 +78,8 @@ let json = ws >>. jvalue .>> ws .>> eof
 let parseJsonString str =
   let stream = makeStringStream str
   json stream
+
+let formatResult result =
+  match fst result with
+  | Some _ -> "Success"
+  | None -> "Failure"

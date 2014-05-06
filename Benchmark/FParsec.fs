@@ -87,3 +87,7 @@ let parseJsonFile fileName =
 
 let parseJsonStream stream =
   runParserOnStream json () "" stream System.Text.Encoding.UTF8
+
+let formatResult = function
+  | Success _ -> "Success"
+  | Failure(e, _, _) -> e

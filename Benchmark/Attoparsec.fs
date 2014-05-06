@@ -76,3 +76,9 @@ do
 let json = ws >>. jvalue .>> ws
 
 let parseJsonString str = parse json str
+
+let formatResult result =
+  match ParseResult.feed "" result with
+  | Partial _
+  | Done _ -> "Success"
+  | Fail(_, _, e) -> e
