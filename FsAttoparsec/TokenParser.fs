@@ -147,7 +147,7 @@ module Token =
     let escMap = Seq.zip "abfnrtv\\\"\'" "\a\b\f\n\r\t\v\\\"\'" |> Seq.toList
 
     let charEsc =
-      let parseEsc (c, code) = char_ c |>> (fun _ -> code)
+      let parseEsc (c, code) = char_ c >>% code
       choice (List.map parseEsc escMap)
 
     let number base_ baseDigit = parser {
@@ -188,7 +188,7 @@ module Token =
     let asciiMap = List.zip (List.append ascii3codes ascii2codes) (List.append ascii3 ascii2)
 
     let  charAscii =
-      let parseAscii (asc, code) = string_ asc |>> (fun _ -> code)
+      let parseAscii (asc, code) = string_ asc >>% code
       choice (List.map parseAscii asciiMap)
 
     let charControl = parser {
@@ -220,8 +220,8 @@ module Token =
     let stringEscape = parser {
       let! _ = char_ '\\'
       return!
-        (escapeGap |>> (fun _ -> None))
-        <|> (escapeEmpty |>> (fun _ -> None))
+        (escapeGap >>% None)
+        <|> (escapeEmpty >>% None)
         <|> (escapeCode |>> Some)
     }
 

@@ -125,6 +125,7 @@ module Parser =
 
   let inline (>>=) p f = bind f p
   let inline (|>>) (p: Parser<_, _>) f = p.Map(f)
+  let inline (>>%) p x = p |>> (fun _ -> x)
 
   type ParserBuilder() =
     member this.Zero() = zero

@@ -40,9 +40,9 @@ let pfloat = scientific |>> float
 
 let jnumber = pfloat |>> JNumber
 
-let jtrue  = string_ "true" >>. ok  (JBool true)
-let jfalse = string_ "false" >>. ok (JBool false)
-let jnull  = string_ "null" >>. ok JNull
+let jtrue  = string_ "true" >>% (JBool true)
+let jfalse = string_ "false" >>% (JBool false)
+let jnull  = string_ "null" >>% JNull
 
 let jvalue, jvalueRef = createParserForwardedToRef()
 
