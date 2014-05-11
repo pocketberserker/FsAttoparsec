@@ -124,6 +124,7 @@ module Parser =
   let zero<'T, 'U> : Parser<'T, 'U> = error "zero"
 
   let inline (>>=) p f = bind f p
+  let inline (|>>) (p: Parser<_, _>) f = p.Map(f)
 
   type ParserBuilder() =
     member this.Zero() = zero
@@ -216,7 +217,7 @@ module Parser =
     )).AsOpaque(what)
 
   let rec skipWhile (m: Monoid<_>) dropWhile (p: _ -> bool) : Parser<_, unit> = parser {
-    let! t = get |> map (dropWhile p)
+    let! t = get |>> (dropWhile p)
     do! put t
     let! input =
       if t = m.Mempty then wantInput else zero
@@ -260,18 +261,18 @@ module Parser =
     inner []
 
   let takeText (m: Monoid<_>) fold =
-    takeRest m |> map (fold (fun a b -> m.Mappend(a, b)) m.Mempty)
+    takeRest m |>> (fold (fun a b -> m.Mappend(a, b)) m.Mempty)
 
   let private when' (m: Parser<_, unit>) b = if b then m else ok ()
 
   let takeWhile1 (m: Monoid<_>) span p = parser {
-    do! get |> map ((=) m.Mempty) >>= when' demandInput
+    do! get |>> ((=) m.Mempty) >>= when' demandInput
     let! s = get
     let (h, t) = span p s
     do! when' (error "takeWhile1") (m.Mempty = h) 
     do! put t
     return!
-      if t = m.Mempty then takeWhile m span p |> map (fun x -> m.Mappend(h, x)) else ok h
+      if t = m.Mempty then takeWhile m span p |>> (fun x -> m.Mappend(h, x)) else ok h
   }
 
   let endOfInput<'T when 'T : equality> = { new Parser<'T, unit>() with
@@ -289,7 +290,7 @@ module Parser =
   let phrase p = (p .>> endOfInput).As("phrase" + p.ToString())
   
   let cons (m: Parser<_, _>) (n: Parser<_, _ list>) =
-    m >>= (fun x -> n |> map (fun xs -> x :: xs))
+    m >>= (fun x -> n |>> (fun xs -> x :: xs))
 
   let (<|>) (m: Parser<_, _>) (n: Parser<_, _>) = { new Parser<_, _>() with
     override this.ToString() = m.Infix("<|> ...")
@@ -300,7 +301,7 @@ module Parser =
 
   module private Lazy =
 
-    let cons m (n: Lazy<Parser<_, _ list>>) = m >>= (fun x -> n.Value |> map (fun xs -> x :: xs))
+    let cons m (n: Lazy<Parser<_, _ list>>) = m >>= (fun x -> n.Value |>> (fun xs -> x :: xs))
     let (>>.) (p: Parser<_, _>) (n: Lazy<Parser<_, _>>) = { new Parser<_, _>() with
       override this.ToString() = p.Infix(">>. " + n.ToString())
       member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Value.Apply(s, kf, ks)) }
@@ -368,7 +369,7 @@ module Parser =
   let choice xs =
     (List.foldBack (<|>) xs (error "choice")).As("choice(" + xs.ToString() + " :_*)")
 
-  let opt m = (attempt m |> map Some <|> ok None).As("opt(" + m.ToString() + ")")
+  let opt m = (attempt m |>> Some <|> ok None).As("opt(" + m.ToString() + ")")
 
   let between pBegin pEnd p = pBegin >>. p .>> pEnd
 

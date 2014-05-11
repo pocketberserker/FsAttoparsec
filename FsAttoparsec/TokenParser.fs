@@ -147,7 +147,7 @@ module Token =
     let escMap = Seq.zip "abfnrtv\\\"\'" "\a\b\f\n\r\t\v\\\"\'" |> Seq.toList
 
     let charEsc =
-      let parseEsc (c, code) = char_ c |> map (fun _ -> code)
+      let parseEsc (c, code) = char_ c |>> (fun _ -> code)
       choice (List.map parseEsc escMap)
 
     let number base_ baseDigit = parser {
@@ -162,10 +162,10 @@ module Token =
 
     let hexDigit =
       satisfy (tryParse Globalization.NumberStyles.HexNumber) <?> "hexadecimal digit"
-      |> map (int >> decimal)
+      |>> (int >> decimal)
     let octDigit =
       satisfy (tryParse Globalization.NumberStyles.Number) <?> "octal digit"
-      |> map (int >> decimal)
+      |>> (int >> decimal)
 
     let charNum = parser {
       let! code =
@@ -188,7 +188,7 @@ module Token =
     let asciiMap = List.zip (List.append ascii3codes ascii2codes) (List.append ascii3 ascii2)
 
     let  charAscii =
-      let parseAscii (asc, code) = string_ asc |> map (fun _ -> code)
+      let parseAscii (asc, code) = string_ asc |>> (fun _ -> code)
       choice (List.map parseAscii asciiMap)
 
     let charControl = parser {
@@ -220,13 +220,13 @@ module Token =
     let stringEscape = parser {
       let! _ = char_ '\\'
       return!
-        (escapeGap |> map (fun _ -> None))
-        <|> (escapeEmpty |> map (fun _ -> None))
-        <|> (escapeCode |> map Some)
+        (escapeGap |>> (fun _ -> None))
+        <|> (escapeEmpty |>> (fun _ -> None))
+        <|> (escapeCode |>> Some)
     }
 
     let stringChar =
-      (stringLetter |> map Some) <|> stringEscape <?> "string character"
+      (stringLetter |>> Some) <|> stringEscape <?> "string character"
 
     let maybe n f = function
       | None -> n
@@ -299,7 +299,7 @@ module Token =
         return n * expo
       }
 
-    let fractFloat n = fractExponent n |> map Choice1Of2
+    let fractFloat n = fractExponent n |>> Choice1Of2
 
     let decimalFloat = parser {
       let! n = decimal_
@@ -424,10 +424,10 @@ module Token =
     ReservedOp = reservedOp languageDef
     CharLiteral = charLiteral languageDef
     StringLiteral = stringLiteral languageDef
-    Natural = natural languageDef |> map int
-    Integer = integer languageDef |> map int
-    Float = float_ languageDef |> map float
-    NaturalOrFloat = naturalOrFloat languageDef |> map (function Choice1Of2 a -> Choice1Of2 (int a) | Choice2Of2 b -> Choice2Of2 (float b))
+    Natural = natural languageDef |>> int
+    Integer = integer languageDef |>> int
+    Float = float_ languageDef |>> float
+    NaturalOrFloat = naturalOrFloat languageDef |>> (function Choice1Of2 a -> Choice1Of2 (int a) | Choice2Of2 b -> Choice2Of2 (float b))
     Decimal = decimal_
     Hexadecimal = hexadecimal
     Octal = octal

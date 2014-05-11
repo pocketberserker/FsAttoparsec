@@ -54,16 +54,16 @@ module String =
 
   let decimal_ =
     takeWhile1 Char.IsDigit
-    |> map (fun x -> x |> BmpString.fold addDigit 0M)
+    |>> (fun x -> x |> BmpString.fold addDigit 0M)
 
   let signedInt = char_ '-' >>. map (~-) decimal_ <|> (char_ '+' >>. decimal_) <|> decimal_
 
   let scientific = parser {
-    let! positive = satisfy (fun c -> c = '-' || c = '+') |> map ((=) '+') <|> ok true
+    let! positive = satisfy (fun c -> c = '-' || c = '+') |>> ((=) '+') <|> ok true
     let! n = decimal_
     let! s =
       (satisfy ((=) '.') >>. takeWhile Char.IsDigit
-      |> map (fun f -> decimal ((string n) + "." + (BmpString.toString f))))
+      |>> (fun f -> decimal ((string n) + "." + (BmpString.toString f))))
       <|> ok (decimal n)
     let sCoeff = if positive then s else -s
     return!
