@@ -27,37 +27,40 @@ module Internal =
 
   type Result<'T, 'U> =
     | Fail of 'T * string list * string
-    | Partial of ('T -> Result<'T, 'U>)
+    | Partial of ('T -> ITrampoline<Result<'T, 'U>>)
     | Done of 'T * 'U
     with
       member this.Translate =
         match this with
         | Fail(input, stack, message) -> ParseResult.Fail(input, stack, message)
-        | Partial k -> ParseResult.Partial (fun a -> (k a).Translate)
+        | Partial k -> ParseResult.Partial (fun a -> (Trampoline.run (k a)).Translate)
         | Done(input, result) -> ParseResult.Done(input, result)
 
   module Result =
     let inline translate (result: Result<_, _>) = result.Translate
 
-type Failure<'T, 'U> = State<'T> * string list * string -> Internal.Result<'T, 'U>
-type Success<'T, 'U, 'V> = State<'T> * 'U -> Internal.Result<'T, 'V>
+type Failure<'T, 'U> = State<'T> * string list * string -> ITrampoline<Internal.Result<'T, 'U>>
+type Success<'T, 'U, 'V> = State<'T> * 'U -> ITrampoline<Internal.Result<'T, 'V>>
   
 [<AbstractClass>]
 type Parser<'T, 'U> () =
 
-  abstract member Apply: State<'T> * Failure<'T, 'V> * Success<'T, 'U, 'V> -> Internal.Result<'T, 'V>
+  abstract member Apply: State<'T> * Failure<'T, 'V> * Success<'T, 'U, 'V> -> ITrampoline<Internal.Result<'T, 'V>>
 
   member this.Infix(s) = "(" + this.ToString() + ") " + s
 
   abstract member Bind: ('U -> Parser<'T, 'V>) -> Parser<'T, 'V>
   default this.Bind(f: 'U -> Parser<'T, 'V>) = { new Parser<'T, 'V>() with
     override x.ToString() =  this.Infix("bind ...")
-    member x.Apply(st0, kf, ks) = this.Apply(st0, kf, (fun (s, a) -> (f a).Apply(s, kf, ks))) }
+    member x.Apply(st0, kf, ks) =
+      new DelayT<_>(fun () -> this.Apply(st0, kf, (fun (s, a) -> (f a).Apply(s, kf, ks)))) :> _ }
 
   abstract member Map: ('U -> 'V) -> Parser<'T, 'V>
   default this.Map(f: 'U -> 'V) = { new Parser<'T, 'V>() with
     override x.ToString() =  this.Infix("map ...")
-    member x.Apply(st0, kf, ks) = this.Apply(st0, kf, (fun (s, a) -> ks (s, f a))) }
+    member x.Apply(st0, kf, ks) =
+      new DelayT<_>(fun () ->
+        this.Apply(st0, kf, (fun (s, a) -> new DelayT<_>(fun () -> ks (s, f a)) :> _))) :> _ }
 
   abstract member Filter: ('U -> bool) -> Parser<'T, 'U>
   default this.Filter(pred: 'U -> bool) = { new Parser<'T, 'U>() with
@@ -90,9 +93,10 @@ type Parser<'T, 'U> () =
       Complete = false
       Monoid = m
     }
-    let kf =  fun (a, b, c) -> Internal.Fail(a.Input, b, c)
-    let ks = fun (a, b) -> Internal.Done(a.Input, b)
+    let kf = fun (a, b, c) -> new ReturnT<_>(Internal.Fail(a.Input, b, c)) :> ITrampoline<_>
+    let ks = fun (a, b) -> new ReturnT<_>(Internal.Done(a.Input, b)) :> ITrampoline<_>
     this.Apply(st, kf, ks)
+    |> Trampoline.run
     |> Internal.Result.translate
 
 [<AutoOpen>]
@@ -131,25 +135,28 @@ module Parser =
 
   let parseOnly (m: Monoid<_>) (parser: Parser<_, _>) input =
     let state = { Input = input; Added = m.Mempty; Complete = true; Monoid = m }
-    let kf =  fun (a, b, c) -> Fail(a.Input, b, c)
-    let ks = fun (a, b) -> Done(a.Input, b)
-    match parser.Apply(state, kf, ks) with
+    let kf = fun (a, b, c) -> new ReturnT<_>(Internal.Fail(a.Input, b, c)) :> ITrampoline<_>
+    let ks = fun (a, b) -> new ReturnT<_>(Internal.Done(a.Input, b)) :> ITrampoline<_>
+    match Trampoline.run <| parser.Apply(state, kf, ks) with
     | Fail(_, _, e) -> Choice2Of2 e
     | Done(_, a) -> Choice1Of2 a
     | _ -> failwith "parseOnly: Parser returned a partial result"
 
   let prompt st kf ks = Partial (fun s ->
     let m = st.Monoid
-    if s = m.Mempty then kf { st with Complete = true }
-    else ks { st with Input = m.Mappend(st.Input, s); Added = m.Mappend(st.Added, s) })
+    if s = m.Mempty then new DelayT<_>(fun () -> kf { st with Complete = true }) :> ITrampoline<_>
+    else
+      new DelayT<_>(fun () -> ks { st with Input = m.Mappend(st.Input, s); Added = m.Mappend(st.Added, s) })
+      :> ITrampoline<_>)
 
   let demandInput<'T when 'T : equality> = { new Parser<'T, unit>() with
     override this.ToString() = "demandInput"
     member this.Apply(st0, kf, ks) =
       if st0.Complete then
-        kf(st0, ["demandInput"], "not enough bytes")
+        new DelayT<_>(fun () -> kf(st0, ["demandInput"], "not enough bytes")) :> _
       else
-        prompt st0 (fun st -> kf(st, ["demandInput"],"not enough bytes")) (fun a -> ks(a, ())) }
+        new ReturnT<_>(prompt st0 (fun st -> kf(st, ["demandInput"],"not enough bytes")) (fun a -> ks(a, ())))
+        :> _ }
 
   let (>>.) (p: Parser<_, _>) (n: Parser<_, _>) = { new Parser<_, _>() with
     override this.ToString() = p.Infix(">>. " + n.ToString())
@@ -163,15 +170,15 @@ module Parser =
   let rec ensure (length: 'T -> int) n = { new Parser<_, unit>() with
     override this.ToString() = "ensure(" + (string n) + ")"
     member this.Apply(st0, kf, ks) =
-      if length st0.Input >= n then ks(st0,())
-      else (demandInput >>. ensure length n).Apply(st0,kf,ks) }
+      if length st0.Input >= n then ks(st0, ())
+      else (demandInput >>. ensure length n).Apply(st0, kf, ks) }
 
   let wantInput<'T when 'T : equality> = { new Parser<'T, bool>() with
     override this.ToString() = "wantInput"
     member this.Apply(st0, kf, ks) =
-      if st0.Input <> st0.Monoid.Mempty then ks(st0, true)
-      elif st0.Complete then ks(st0, false)
-      else prompt st0 (fun a -> ks(a, false)) (fun a -> ks(a, true)) }
+      if st0.Input <> st0.Monoid.Mempty then ks (st0, true)
+      elif st0.Complete then ks (st0, false)
+      else new ReturnT<_>(prompt st0 (fun a -> ks(a, false)) (fun a -> ks(a, true))) :> _ }
 
   let atEnd<'T when 'T : equality> = wantInput<'T>.Map(not)
 
