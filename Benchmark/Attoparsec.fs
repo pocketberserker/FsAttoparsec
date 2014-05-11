@@ -44,12 +44,6 @@ let jtrue  = string_ "true" >>. ok  (JBool true)
 let jfalse = string_ "false" >>. ok (JBool false)
 let jnull  = string_ "null" >>. ok JNull
 
-let createParserForwardedToRef () =
-  let refParser = ref (error "Forwarded ref parser was never initialized")
-  let fwdParser = { new Parser<_, _>() with
-    member this.Apply(st, kf, ks) = (!refParser).Apply(st, kf ,ks) }
-  (fwdParser, refParser)
-
 let jvalue, jvalueRef = createParserForwardedToRef()
 
 let listBetweenStrings sOpen sClose pElement f =

@@ -379,3 +379,10 @@ module Parser =
       p.Apply(st0, kf, ks) }
 
   let option x p = p <|> ok x
+
+  let createParserForwardedToRef () =
+    let refParser = ref (error "Forwarded ref parser was never initialized")
+    let fwdParser = { new Parser<_, _>() with
+      override this.ToString() = (!refParser).ToString()
+      member this.Apply(st, kf, ks) = (!refParser).Apply(st, kf ,ks) }
+    (fwdParser, refParser)
