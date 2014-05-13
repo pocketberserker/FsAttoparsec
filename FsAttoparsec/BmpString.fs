@@ -53,8 +53,11 @@ type BmpString(array: char[], offset: int, count: int) =
       if o = o' then if l < l' then -1 else 1
       else if o < o' then -1 else 1 
     else
-      let left, right = x.[o .. (o + l - 1)], x'.[o' .. (o' + l' - 1)]
-      if left = right then 0 elif left < right then -1 else 1
+      if l < l' then -1
+      elif l > l' then 1
+      else
+        let left, right = x.[o .. (o + l - 1)], x'.[o' .. (o' + l' - 1)]
+        if left = right then 0 elif left < right then -1 else 1
 
   override x.Equals(other) = 
     match other with
