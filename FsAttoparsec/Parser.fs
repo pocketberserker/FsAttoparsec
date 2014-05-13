@@ -42,89 +42,99 @@ module Internal =
 type Failure<'T, 'U> = State<'T> * string list * string -> ITrampoline<Internal.Result<'T, 'U>>
 type Success<'T, 'U, 'V> = State<'T> * 'U -> ITrampoline<Internal.Result<'T, 'V>>
   
-[<AbstractClass>]
-type Parser<'T, 'U> () =
-
+type Parser<'T, 'U> =
   abstract member Apply: State<'T> * Failure<'T, 'V> * Success<'T, 'U, 'V> -> ITrampoline<Internal.Result<'T, 'V>>
 
-  member this.Infix(s) = "(" + this.ToString() + ") " + s
+module private IParser =
+  let infix s p = "(" + p.ToString() + ") " + s
 
-  abstract member Bind: ('U -> Parser<'T, 'V>) -> Parser<'T, 'V>
-  default this.Bind(f: 'U -> Parser<'T, 'V>) = { new Parser<'T, 'V>() with
-    override x.ToString() =  this.Infix("bind ...")
-    member x.Apply(st0, kf, ks) =
-      new DelayT<_>(fun () -> this.Apply(st0, kf, (fun (s, a) -> (f a).Apply(s, kf, ks)))) :> _ }
+type private BindP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> Parser<'T, 'V>) =
+  override this.ToString() = IParser.infix "bind ..." p
+  with
+    interface Parser<'T, 'V> with
+      member this.Apply(st0, kf, ks) =
+        let ks = fun (s, a) -> (f a).Apply(s, kf, ks)
+        DelayT<_>(fun () -> p.Apply(st0, kf, ks)) :> _
 
-  abstract member Map: ('U -> 'V) -> Parser<'T, 'V>
-  default this.Map(f: 'U -> 'V) = { new Parser<'T, 'V>() with
-    override x.ToString() =  this.Infix("map ...")
-    member x.Apply(st0, kf, ks) =
-      new DelayT<_>(fun () ->
-        this.Apply(st0, kf, (fun (s, a) -> new DelayT<_>(fun () -> ks (s, f a)) :> _))) :> _ }
+type private MapP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> 'V) =
+  override x.ToString() =  IParser.infix "map ..." p
+  with
+    interface Parser<'T, 'V> with
+      member x.Apply(st0, kf, ks) =
+        DelayT<_>(fun () -> p.Apply(st0, kf, (fun (s, a) -> DelayT<_>(fun () -> ks (s, f a)) :> _))) :> _
 
-  abstract member Filter: ('U -> bool) -> Parser<'T, 'U>
-  default this.Filter(pred: 'U -> bool) = { new Parser<'T, 'U>() with
-    override x.ToString() =  this.Infix("filter ...")
-    member x.Apply(st0, kf, ks) =
-      this.Apply(st0, kf, (fun (s, a) -> if pred a then ks(s,a) else kf(s, [], "withFilter")))
-    override x.Map(f) = this.Filter(pred).Map(f)
-    override x.Bind(f) = { new Parser<'T, 'V>() with
-      override y.ToString() = x.ToString()
-      member y.Apply(st0, kf, ks) =
-        this.Apply(st0, kf, fun (s, a) -> if pred a then (f a).Apply(s,kf,ks) else kf(s, [], "withFilter")) }
-    override x.Filter(q) = this.Filter(fun y -> pred y && q y) }
+type private FilterP<'T, 'U>(p: Parser<'T, 'U>, pred: 'U -> bool) =
+  override x.ToString() =  IParser.infix "filter ..." p
+  with
+    interface Parser<'T, 'U> with
+      member x.Apply(st0, kf, ks) =
+        p.Apply(st0, kf, (fun (s, a) -> if pred a then ks (s, a) else kf(s, [], "withFilter")))
 
-  member this.As(s) = { new Parser<_, _>() with
-    override x.ToString() = s
-    member x.Apply(st0, kf, ks) =
-      let kf = fun (st1, stack, msg) -> kf (st1, s :: stack, msg)
-      this.Apply(st0, kf, ks) }
+type private AsP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
+  override x.ToString() = s
+  with
+    interface Parser<'T, 'U> with
+      member x.Apply(st0, kf, ks) =
+        let kf = fun (st1, stack, msg) -> kf (st1, s :: stack, msg)
+        p.Apply(st0, kf, ks)
 
-  member this.AsOpaque(s) = { new Parser<_, _>() with
-    override x.ToString() = s
-    member x.Apply(st0, kf, ks) =
-      let kf = fun (st1, stack, msg) -> kf (st1, [], "Failure reading:" + s)
-      this.Apply(st0, kf, ks) }
+type private AsOpaqueP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
+  override x.ToString() = s
+  with
+    interface Parser<'T, 'U> with
+      member x.Apply(st0, kf, ks) =
+        let kf = fun (st1, stack, msg) -> kf (st1, [], "Failure reading:" + s)
+        p.Apply(st0, kf, ks)
 
-  member this.Parse(m:Monoid<_>, input) =
-    let st = {
-      Input = input
-      Added = m.Mempty
-      Complete = false
-      Monoid = m
-    }
-    let kf = fun (a, b, c) -> new ReturnT<_>(Internal.Fail(a.Input, b, c)) :> ITrampoline<_>
-    let ks = fun (a, b) -> new ReturnT<_>(Internal.Done(a.Input, b)) :> ITrampoline<_>
-    this.Apply(st, kf, ks)
-    |> Trampoline.run
-    |> Internal.Result.translate
+type private ReturnP<'T, 'U>(a: 'U) =
+  override x.ToString() =
+    match box a with
+    | null -> "ok(unit or null)"
+    | _ -> "ok(" + a.ToString() + ")"
+  with
+    interface Parser<'T, 'U> with
+      member x.Apply(st0, kf, ks) = ks (st0, a)
+
+type private ErrorP<'T, 'U>(what: string) =
+  override x.ToString() = "error(" + what + ")"
+  with
+    interface Parser<'T, 'U> with
+      member x.Apply(st0, kf, ks) = kf (st0, [], "Failed reading: " + what)
 
 [<AutoOpen>]
 module Parser =
 
   open Internal
 
-  let inline bind f (parser: Parser<_, _>) = parser.Bind(f)
-  let inline map f (parser: Parser<_, _>) = parser.Map(f)
-  let inline filter pred (parser: Parser<_, _>) = parser.Filter(pred)
+  let infix s p = IParser.infix s p
 
-  let ok a =
-    { new Parser<_, _>() with
-    override this.ToString() =
-      match box a with
-      | null -> "ok(unit or null)"
-      | _ -> "ok(" + a.ToString() + ")"
-    member this.Apply(st0, kf, ks) = ks (st0, a) }
+  let parse (m: Monoid<_>) (p: Parser<_, _>) input =
+    let st = {
+      Input = input
+      Added = m.Mempty
+      Complete = false
+      Monoid = m
+    }
+    let kf = fun (a, b, c) -> ReturnT<_>(Internal.Fail(a.Input, b, c)) :> ITrampoline<_>
+    let ks = fun (a, b) -> ReturnT<_>(Internal.Done(a.Input, b)) :> ITrampoline<_>
+    p.Apply(st, kf, ks)
+    |> Trampoline.run
+    |> Internal.Result.translate
+
+  let bind f p = BindP<_, _, _>(p, f) :> Parser<_, _>
+  let map f p = MapP<_, _, _>(p, f) :> Parser<_, _>
+  let filter pred p = FilterP<_, _>(p, pred) :> Parser<_, _>
+  let as_ s p = AsP<_, _>(p, s) :> Parser<_, _>
+  let asOpaque s p = AsOpaqueP<_, _>(p, s) :> Parser<_, _>
+
+  let ok a = ReturnP<_, _>(a) :> Parser<_, _>
  
-  let error what =
-    { new Parser<_, _>() with
-      override this.ToString() = "error(" + what + ")"
-      member this.Apply(st0, kf, ks) = kf (st0, [], "Failed reading: " + what) }
+  let error what = ErrorP<_, _>(what) :> Parser<_, _>
   
   let zero<'T, 'U> : Parser<'T, 'U> = error "zero"
 
   let inline (>>=) p f = bind f p
-  let inline (|>>) (p: Parser<_, _>) f = p.Map(f)
+  let inline (|>>) p f = map f p
   let inline (>>%) p x = p |>> (fun _ -> x)
 
   type ParserBuilder() =
@@ -137,8 +147,8 @@ module Parser =
 
   let parseOnly (m: Monoid<_>) (parser: Parser<_, _>) input =
     let state = { Input = input; Added = m.Mempty; Complete = true; Monoid = m }
-    let kf = fun (a, b, c) -> new ReturnT<_>(Internal.Fail(a.Input, b, c)) :> ITrampoline<_>
-    let ks = fun (a, b) -> new ReturnT<_>(Internal.Done(a.Input, b)) :> ITrampoline<_>
+    let kf = fun (a, b, c) -> ReturnT<_>(Internal.Fail(a.Input, b, c)) :> ITrampoline<_>
+    let ks = fun (a, b) -> ReturnT<_>(Internal.Done(a.Input, b)) :> ITrampoline<_>
     match Trampoline.run <| parser.Apply(state, kf, ks) with
     | Fail(_, _, e) -> Choice2Of2 e
     | Done(_, a) -> Choice1Of2 a
@@ -146,57 +156,90 @@ module Parser =
 
   let prompt st kf ks = Partial (fun s ->
     let m = st.Monoid
-    if s = m.Mempty then new DelayT<_>(fun () -> kf { st with Complete = true }) :> ITrampoline<_>
+    if s = m.Mempty then DelayT<_>(fun () -> kf { st with Complete = true }) :> ITrampoline<_>
     else
-      new DelayT<_>(fun () -> ks { st with Input = m.Mappend(st.Input, s); Added = m.Mappend(st.Added, s) })
+      DelayT<_>(fun () -> ks { st with Input = m.Mappend(st.Input, s); Added = m.Mappend(st.Added, s) })
       :> ITrampoline<_>)
 
-  let demandInput<'T when 'T : equality> = { new Parser<'T, unit>() with
+  type private DemandInputP<'T when 'T : equality>() =
     override this.ToString() = "demandInput"
-    member this.Apply(st0, kf, ks) =
-      if st0.Complete then
-        new DelayT<_>(fun () -> kf(st0, ["demandInput"], "not enough bytes")) :> _
-      else
-        new ReturnT<_>(prompt st0 (fun st -> kf(st, ["demandInput"],"not enough bytes")) (fun a -> ks(a, ())))
-        :> _ }
+    with
+      interface Parser<'T, unit> with
+        member this.Apply(st0, kf, ks) =
+          if st0.Complete then
+            DelayT<_>(fun () -> kf(st0, ["demandInput"], "not enough bytes")) :> _
+          else
+            ReturnT<_>(prompt st0 (fun st -> kf(st, ["demandInput"],"not enough bytes")) (fun a -> ks(a, ()))) :> _
 
-  let (>>.) (p: Parser<_, _>) (n: Parser<_, _>) = { new Parser<_, _>() with
-    override this.ToString() = p.Infix(">>. " + n.ToString())
-    member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Apply(s, kf, ks)) }
+  let inline private demandInput'<'T when 'T : equality> () = DemandInputP<'T>() :> Parser<'T, unit>
+  let demandInput<'T when 'T : equality> = demandInput'<'T> ()
+
+  type private RightP<'T, 'U, 'V>(p: Parser<'T, 'U>, n: Parser<'T, 'V>) =
+    override this.ToString() = IParser.infix (">>. " + n.ToString()) p
+    with
+      interface Parser<'T, 'V> with
+        member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Apply(s, kf, ks))
+
+  let (>>.) (p: Parser<_, _>) (n: Parser<_, _>) = RightP<_, _, _>(p, n) :> Parser<_, _>
+
+  type private LeftP<'T, 'U, 'V>(m: Parser<'T, 'U>, n: Parser<'T, 'V>) =
+    override this.ToString() = IParser.infix (".>> " + n.ToString()) m
+    with
+      interface Parser<'T, 'U> with
+        member this.Apply(st0, kf, ks) = m.Apply(st0, kf, fun (st1, a) -> n.Apply(st1, kf, fun (st2, b) -> ks (st2, a)))
   
-  let (.>>) (m: Parser<_, _>) (n: Parser<_, _>) = { new Parser<_, _>() with
-    override this.ToString() = m.Infix(".>> " + n.ToString())
-    member this.Apply(st0, kf, ks) =
-      m.Apply(st0, kf, fun (st1, a) -> n.Apply(st1, kf, fun (st2, b) -> ks (st2, a))) }
+  let (.>>) (m: Parser<_, _>) (n: Parser<_, _>) = LeftP<_, _, _>(m, n) :> Parser<_, _>
 
-  let rec ensure (length: 'T -> int) n = { new Parser<_, unit>() with
+  type private EnsureP<'T when 'T : equality>(length: 'T -> int, n: int) =
     override this.ToString() = "ensure(" + (string n) + ")"
-    member this.Apply(st0, kf, ks) =
-      if length st0.Input >= n then ks(st0, ())
-      else (demandInput >>. ensure length n).Apply(st0, kf, ks) }
+    with
+      interface Parser<'T, unit> with
+        member this.Apply(st0, kf, ks) =
+          if length st0.Input >= n then ks(st0, ())
+          else (demandInput >>. EnsureP<'T>(length, n)).Apply(st0, kf, ks)
 
-  let wantInput<'T when 'T : equality> = { new Parser<'T, bool>() with
+  let ensure (length: 'T -> int) n = EnsureP<_>(length, n) :> Parser<_, unit>
+
+  type private WantInputP<'T when 'T : equality>() =
     override this.ToString() = "wantInput"
-    member this.Apply(st0, kf, ks) =
-      if st0.Input <> st0.Monoid.Mempty then ks (st0, true)
-      elif st0.Complete then ks (st0, false)
-      else new ReturnT<_>(prompt st0 (fun a -> ks(a, false)) (fun a -> ks(a, true))) :> _ }
+    with
+      interface Parser<'T, bool> with
+        member this.Apply(st0, kf, ks) =
+          if st0.Input <> st0.Monoid.Mempty then ks (st0, true)
+          elif st0.Complete then ks (st0, false)
+          else ReturnT<_>(prompt st0 (fun a -> ks(a, false)) (fun a -> ks(a, true))) :> _
 
-  let atEnd<'T when 'T : equality> = wantInput<'T>.Map(not)
+  let inline private wantInput'<'T when 'T : equality> () = WantInputP<_>() :> Parser<'T, bool>
+  let wantInput<'T when 'T : equality> = wantInput'<'T> ()
 
-  let get<'T> = { new Parser<'T, _>() with
+  let atEnd<'T when 'T : equality> = wantInput<'T> |>> not
+
+  type private GetP<'T>() =
     override this.ToString() = "get"
-    member this.Apply(st0, kf, ks) = ks(st0, st0.Input) }
+    with
+      interface Parser<'T, 'T> with
+        member this.Apply(st0, kf, ks) = ks(st0, st0.Input)
 
-  let put s = { new Parser<_, unit>() with
+  let inline private get'<'T> () = GetP<'T>() :> Parser<'T, _>
+  let get<'T> = get'<'T> ()
+
+  type private PutP<'T>(s) =
     override this.ToString() = "put(" + s.ToString() + ")"
-    member this.Apply(st0, kf, ks) = ks({ st0 with Input = s }, ()) }
+    with
+      interface Parser<'T, unit> with
+        member this.Apply(st0, kf, ks) = ks({ st0 with Input = s }, ())
 
-  let attempt (p: Parser<_, _>) = { new Parser<_, _>() with
+  let put s = PutP<_>(s) :> Parser<_, unit>
+
+  type private AttemptP<'T, 'U>(p: Parser<'T, 'U>) =
     override this.ToString() = "attempt(" + p.ToString() + ")"
-    member this.Apply(st0, kf, ks) =
-      let kf = fun (st1, stack, msg) -> kf (st0 + st1, stack, msg)
-      p.Apply(State.noAdds st0, kf, ks) }
+    with
+      interface Parser<'T, 'U> with
+        member this.Apply(st0, kf, ks) =
+          let kf = fun (st1, stack, msg) -> kf (st0 + st1, stack, msg)
+          p.Apply(State.noAdds st0, kf, ks)
+
+  let attempt p = AttemptP<_, _>(p) :> Parser<_, _>
 
   let elem length head tail p what =
     let what = match what with | Some s -> s | None -> "elem(...)"
@@ -205,7 +248,8 @@ module Parser =
       let c = head s
       if p c then put (tail s) >>. ok c
       else error what
-    )).AsOpaque(what)
+    ))
+    |> asOpaque what
 
   let satisfy length head tail p = elem length head tail p (Some "satisfy(...)")
 
@@ -215,7 +259,8 @@ module Parser =
     >>= (fun s ->
       if p (head s) then put (tail s)
       else error what
-    )).AsOpaque(what)
+    ))
+    |> asOpaque what
 
   let rec skipWhile (m: Monoid<_>) dropWhile (p: _ -> bool) : Parser<_, unit> = parser {
     let! t = get |>> (dropWhile p)
@@ -233,7 +278,8 @@ module Parser =
       let (w, h) = splitAt n s
       if p w then put h >>. ok w
       else error what
-    )).AsOpaque(what)
+    ))
+    |> asOpaque what
 
   let take length splitAt n =
     takeWith length splitAt n (fun _ -> true) (Some ("take(" + (string n) + ")"))
@@ -276,40 +322,51 @@ module Parser =
       if t = m.Mempty then takeWhile m span p |>> (fun x -> m.Mappend(h, x)) else ok h
   }
 
-  let endOfInput<'T when 'T : equality> = { new Parser<'T, unit>() with
+  type private EndOfInputP<'T when 'T : equality>() =
     override this.ToString() = "endOfInput"
-    member this.Apply(st0, kf, ks) =
-      if (st0.Input = st0.Monoid.Mempty) then
-        if st0.Complete then ks (st0, ())
-        else
-          let kf = fun (st1, stack, msg) -> ks (st0 + st1, ())
-          let ks = fun (st1, u) -> kf (st0 + st1, [], "endOfInput")
-          demandInput.Apply(st0, kf, ks)
-      else kf (st0, [], "endOfInput")
-  }
-  
-  let phrase p = (p .>> endOfInput).As("phrase" + p.ToString())
-  
-  let cons (m: Parser<_, _>) (n: Parser<_, _ list>) =
-    m >>= (fun x -> n |>> (fun xs -> x :: xs))
+    with
+      interface Parser<'T, unit> with
+        member this.Apply(st0, kf, ks) =
+          if (st0.Input = st0.Monoid.Mempty) then
+            if st0.Complete then ks (st0, ())
+            else
+              let kf = fun (st1, stack, msg) -> ks (st0 + st1, ())
+              let ks = fun (st1, u) -> kf (st0 + st1, [], "endOfInput")
+              demandInput.Apply(st0, kf, ks)
+          else kf (st0, [], "endOfInput")
 
-  let (<|>) (m: Parser<_, _>) (n: Parser<_, _>) = { new Parser<_, _>() with
-    override this.ToString() = m.Infix("<|> ...")
-    member this.Apply(st0, kf, ks) =
-      let kf = fun (st1, stack, msg) -> n.Apply(st0 + st1, kf, ks)
-      m.Apply(State.noAdds st0, kf, ks)
-  }
+  let inline private endOfInput'<'T when 'T : equality> () = EndOfInputP<_>() :> Parser<'T, unit>
+  let endOfInput<'T when 'T : equality> = endOfInput'<'T> ()
+  
+  let phrase p = p .>> endOfInput |> as_ ("phrase" + p.ToString())
+  
+  let cons m n = m >>= (fun x -> n |>> (fun xs -> x :: xs))
+
+  type private OrP<'T, 'U>(m: Parser<'T, 'U>, n: Parser<'T, 'U>) =
+    override this.ToString() = IParser.infix ("<|> ...") m
+    with
+      interface Parser<'T, 'U> with
+        member this.Apply(st0, kf, ks) =
+          let kf = fun (st1, stack, msg) -> n.Apply(st0 + st1, kf, ks)
+          m.Apply(State.noAdds st0, kf, ks)
+
+  let (<|>) m n = OrP<_, _>(m, n) :> Parser<_, _>
 
   module private Lazy =
 
-    let cons m (n: Lazy<Parser<_, _ list>>) = m >>= (fun x -> n.Value |>> (fun xs -> x :: xs))
-    let (>>.) (p: Parser<_, _>) (n: Lazy<Parser<_, _>>) = { new Parser<_, _>() with
-      override this.ToString() = p.Infix(">>. " + n.ToString())
-      member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Value.Apply(s, kf, ks)) }
+    let cons m (n: Lazy<_>) = m >>= (fun x -> n.Value |>> (fun xs -> x :: xs))
+
+    type RightP<'T, 'U, 'V>(p: Parser<'T, 'U>, n: Lazy<Parser<'T, 'V>>) =
+      override this.ToString() = IParser.infix (">>. " + n.ToString()) p
+      with
+        interface Parser<'T, 'V> with
+          member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Value.Apply(s, kf, ks))
+
+    let (>>.) p n = RightP<_,_, _>(p, n) :> Parser<_, _>
 
   let many p =
     let rec manyP = lazy (Lazy.cons p manyP <|> ok [])
-    manyP.Force().As("many(" + p.ToString() + ")")
+    manyP.Value |> as_ ("many(" + p.ToString() + ")")
 
   let many1 p = cons p (many p)
 
@@ -345,21 +402,21 @@ module Parser =
 
   let manyTill p q =
     let rec scan = lazy (q >>. ok [] <|> Lazy.cons p scan)
-    scan.Value.As("manyTill(" + p.ToString() + "," + q.ToString() + ")")
+    scan.Value |> as_ ("manyTill(" + p.ToString() + "," + q.ToString() + ")")
   
   let skipMany p =
     let rec scan = lazy (Lazy.(>>.) p scan <|> ok ())
-    scan.Value.As("skipMany(" + p.ToString() + ")")
+    scan.Value |> as_ ("skipMany(" + p.ToString() + ")")
 
-  let skipMany1 p = (p >>. skipMany p).As("skipMany1(" + p.ToString() + ")")
+  let skipMany1 p = (p >>. skipMany p) |> as_ ("skipMany1(" + p.ToString() + ")")
 
   let sepBy1 p s =
     let rec scan = lazy (cons p (Lazy.(>>.) s scan <|> ok []))
-    scan.Value.As("sepBy1(" + p.ToString() + "," + s.ToString() + ")")
+    scan.Value |> as_ ("sepBy1(" + p.ToString() + "," + s.ToString() + ")")
 
   let sepBy p s =
-    (cons p ((s >>. sepBy1 p s) <|> ok []) <|> ok [])
-      .As("sepBy(" + p.ToString() + "," + s.ToString() + ")")
+    cons p ((s >>. sepBy1 p s) <|> ok []) <|> ok []
+    |> as_ ("sepBy(" + p.ToString() + "," + s.ToString() + ")")
 
   let inline (<*>) f m = f >>= fun f' -> m >>= fun m' -> ok (f' m')
   let inline (<!>) f m = map f m
@@ -368,23 +425,31 @@ module Parser =
   let inline ( <*) x y = lift2 (fun z _ -> z) x y
 
   let choice xs =
-    (List.foldBack (<|>) xs (error "choice")).As("choice(" + xs.ToString() + " :_*)")
+    List.foldBack (<|>) xs (error "choice") |> as_ ("choice(" + xs.ToString() + " :_*)")
 
-  let opt m = (attempt m |>> Some <|> ok None).As("opt(" + m.ToString() + ")")
+  let opt p = attempt p |>> Some <|> ok None |> as_ ("opt(" + p.ToString() + ")")
 
   let between pBegin pEnd p = pBegin >>. p .>> pEnd
 
-  let (<?>) (p: Parser<_, _>) message = { new Parser<_, _>() with
-    override this.ToString() = p.Infix("<?> " + message)
-    member this.Apply(st0, kf, ks) =
-      let kf (st, strs, msg) = kf(st, msg :: strs, msg)
-      p.Apply(st0, kf, ks) }
+  type private MessageP<'T, 'U>(p: Parser<'T, 'U>, message: string) =
+    override this.ToString() = IParser.infix ("<?> " + message) p
+    with
+      interface Parser<'T, 'U> with
+        member this.Apply(st0, kf, ks) =
+          let kf (st, strs, msg) = kf(st, msg :: strs, msg)
+          p.Apply(st0, kf, ks)
+
+  let (<?>) p message = MessageP<_, _>(p, message) :> Parser<_, _>
 
   let option x p = p <|> ok x
 
+  type private RefP<'T, 'U>(refParser: Parser<'T, 'U> ref) =
+    override this.ToString() = (!refParser).ToString()
+    with
+      interface Parser<'T, 'U> with
+        member this.Apply(st, kf, ks) = (!refParser).Apply(st, kf ,ks)
+
   let createParserForwardedToRef () =
     let refParser = ref (error "Forwarded ref parser was never initialized")
-    let fwdParser = { new Parser<_, _>() with
-      override this.ToString() = (!refParser).ToString()
-      member this.Apply(st, kf, ks) = (!refParser).Apply(st, kf ,ks) }
+    let fwdParser = RefP(refParser) :> Parser<_, _>
     (fwdParser, refParser)

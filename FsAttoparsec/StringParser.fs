@@ -31,7 +31,7 @@ module String =
 
   let anyChar = satisfy (fun _ -> true)
 
-  let notChar c = (satisfy ((<>) c)).As("not '" + (string c) + "'")
+  let notChar c = satisfy ((<>) c) |> as_ ("not '" + (string c) + "'")
 
   let takeWhile (p: _ -> bool) = takeWhile monoid BmpString.span p
 
@@ -68,14 +68,15 @@ module String =
     let sCoeff = if positive then s else -s
     return!
       satisfy (fun c -> c = 'e' || c = 'E')
-      >>. signedInt.Bind(fun x ->
+      >>. signedInt
+      >>= (fun x ->
         if int x > Int32.MaxValue then error ("Exponent too large: " + string s)
         else ok (s * (decimal (Math.Pow(10.0, float x))))) <|> ok sCoeff
   }
 
   let scan s p = scan monoid BmpString.head BmpString.tail BmpString.take s p
 
-  let parse (m: Parser<_, _>) (Bmp init) = m.Parse(monoid, init)
+  let parse p (Bmp init) = parse monoid p init
 
   let parseAll m init = parse (phrase m) init
   

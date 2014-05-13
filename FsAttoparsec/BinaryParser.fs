@@ -28,7 +28,7 @@ module Binary =
 
   let anyByte = satisfy (fun _ -> true)
 
-  let notByte c = (satisfy ((<>) c)).As("not '" + (string c) + "'")
+  let notByte c = (satisfy ((<>) c)) |> as_ ("not '" + (string c) + "'")
 
   let takeWhile (p: _ -> bool) =
     takeWhile BinaryArray.monoid BinaryArray.span p
@@ -46,7 +46,6 @@ module Binary =
 
   let scan s p = scan BinaryArray.monoid BinaryArray.head BinaryArray.tail BinaryArray.take s p
   
-  let parse (m: Parser<BinaryArray, _>) (Bin init) =
-    m.Parse(BinaryArray.monoid, init)
+  let parse p (Bin init) = parse BinaryArray.monoid p init
 
   let parseAll m init = parse (phrase m) init
