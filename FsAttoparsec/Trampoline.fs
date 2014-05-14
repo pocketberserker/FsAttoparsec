@@ -1,12 +1,12 @@
-﻿namespace Attoparsec
+﻿module Attoparsec.Trampoline
 
-type Trampoline<'T> =
+type TrampolineT<'T> =
   | DelayValue of DelayT<'T>
   | ReturnValue of ReturnT<'T>
   | BindValue of IBind<'T>
 
 and ITrampoline<'T> = 
-  abstract member Value : Trampoline<'T>
+  abstract member Value : TrampolineT<'T>
   
 and DelayT<'T>(f : unit -> ITrampoline<'T>) =
    member this.Func = f
@@ -20,7 +20,7 @@ and ReturnT<'T>(x :'T) =
  
 and IBind<'T> = 
   abstract Bind<'U> : ('T -> ITrampoline<'U>) -> ITrampoline<'U>
-and BindT<'T, 'U>(t: Trampoline<'T>, f : ('T -> ITrampoline<'U>)) =
+and BindT<'T, 'U>(t: TrampolineT<'T>, f : ('T -> ITrampoline<'U>)) =
   member this.Func = f
   member this.Value = t
   interface IBind<'U> with
@@ -29,19 +29,17 @@ and BindT<'T, 'U>(t: Trampoline<'T>, f : ('T -> ITrampoline<'U>)) =
   interface ITrampoline<'U> with
     member this.Value = BindValue this
 
-module Trampoline =
+let rec resume (t: ITrampoline<'T>) =
+  match t with
+  | :? DelayT<'T> as d -> Choice1Of2 d.Func
+  | :? ReturnT<'T> as r -> Choice2Of2 r.Value
+  | :? BindT<_, _> as b ->
+    match t.Value with
+    | ReturnValue a -> resume (b.Func a.Value)
+    | DelayValue k -> Choice1Of2 (fun () -> new BindT<_, _>((k.Func ()).Value, b.Func) :> _)
+    | BindValue b2 -> resume <| b2.Bind(b.Func)
 
-  let rec resume (t: ITrampoline<'T>) =
-    match t with
-    | :? DelayT<'T> as d -> Choice1Of2 d.Func
-    | :? ReturnT<'T> as r -> Choice2Of2 r.Value
-    | :? BindT<_, _> as b ->
-      match t.Value with
-      | ReturnValue a -> resume (b.Func a.Value)
-      | DelayValue k -> Choice1Of2 (fun () -> new BindT<_, _>((k.Func ()).Value, b.Func) :> _)
-      | BindValue b2 -> resume <| b2.Bind(b.Func)
-
-  let rec run t =
-    match resume t with
-    | Choice1Of2 k -> run <| k ()
-    | Choice2Of2 x -> x
+let rec run t =
+  match resume t with
+  | Choice1Of2 k -> run <| k ()
+  | Choice2Of2 x -> x

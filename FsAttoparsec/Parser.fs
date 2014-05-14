@@ -1,5 +1,7 @@
 ﻿namespace Attoparsec
 
+open Trampoline
+
 type State<'T> = {
   Input: 'T
   Added: 'T
