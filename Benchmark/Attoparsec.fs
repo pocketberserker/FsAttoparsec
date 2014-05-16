@@ -6,8 +6,7 @@ open System
 open Helper
 open Ast
 
-let newline = satisfy (fun i -> inClass "\r\n" i || inClass "\r" i || inClass "\n" i)
-let ws = many (newline <|> satisfy Char.IsWhiteSpace)
+let ws = spaces
 let str = string_
 
 let stringLiteral =

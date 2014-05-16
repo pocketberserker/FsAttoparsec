@@ -103,3 +103,6 @@ module String =
 
   let sepBy1 p s = sepBy1 List.monoid List.cons p s
   let sepBy p s = sepBy List.monoid List.cons p s
+
+  let newline = manySatisfy (fun i -> inClass "\r\n" i || inClass "\r" i || inClass "\n" i);
+  let spaces = manySatisfy (fun i -> inClass "\r\n" i || inClass "\r" i || inClass "\n" i || Char.IsWhiteSpace i)
