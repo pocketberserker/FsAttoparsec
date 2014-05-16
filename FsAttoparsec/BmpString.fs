@@ -222,6 +222,6 @@ module BmpString =
 
   let takeUntil pred bs = split pred bs |> fst 
 
-  let monoid = { new Monoid<_>() with
+  let monoid = { new Monoid<_> with
     override x.Mempty = empty
     override x.Mappend(a, b) = append a b }
