@@ -31,8 +31,7 @@ let stringLiteral =
     ))))
 
   between (str "\"") (str "\"")
-    (sepBy (many (satisfy (fun c -> c <> '"' && c <> '\\')) |>> BmpString.ofList)
-      (str "\\" >>. (escape <|> unicodeEscape)) |>> (List.fold (fun acc x -> BmpString.append acc x) BmpString.empty >> BmpString.toString))
+    (stringsSepBy (manySatisfy (fun c -> c <> '"' && c <> '\\')) (str "\\" >>. (escape <|> unicodeEscape)) |>> BmpString.toString)
 
 let jstring = stringLiteral |>> JString
 

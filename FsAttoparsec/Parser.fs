@@ -342,7 +342,7 @@ module Parser =
   
   let phrase p = p .>> endOfInput |> as_ ("phrase" + p.ToString())
   
-  let cons m n = m >>= (fun x -> n |>> (fun xs -> x :: xs))
+  let cons inputCons m n = m >>= (fun x -> n |>> (inputCons x))
 
   type private OrP<'T, 'U>(m: Parser<'T, 'U>, n: Parser<'T, 'U>) =
     override this.ToString() = IParser.infix ("<|> ...") m
@@ -356,7 +356,7 @@ module Parser =
 
   module private Lazy =
 
-    let cons m (n: Lazy<_>) = m >>= (fun x -> n.Value |>> (fun xs -> x :: xs))
+    let cons inputCons m (n: Lazy<_>) = m >>= (fun x -> n.Value |>> (inputCons x))
 
     type RightP<'T, 'U, 'V>(p: Parser<'T, 'U>, n: Lazy<Parser<'T, 'V>>) =
       override this.ToString() = IParser.infix (">>. " + n.ToString()) p
@@ -366,11 +366,11 @@ module Parser =
 
     let (>>.) p n = RightP<_,_, _>(p, n) :> Parser<_, _>
 
-  let many p =
-    let rec manyP = lazy (Lazy.cons p manyP <|> ok [])
+  let many (monoid: Monoid<_>) inputCons p =
+    let rec manyP = lazy (Lazy.cons inputCons p manyP <|> ok monoid.Mempty)
     manyP.Value |> as_ ("many(" + p.ToString() + ")")
 
-  let many1 p = cons p (many p)
+  let many1 monoid inputCons p = cons inputCons p (many monoid inputCons p)
 
   type private Scan<'T, 'U> =
     | Continue of 'T
@@ -402,8 +402,8 @@ module Parser =
         | xs -> ok (xs |> List.rev |> List.fold (fun a b -> m.Mappend(a, b)) m.Mempty)
     }
 
-  let manyTill p q =
-    let rec scan = lazy (q >>. ok [] <|> Lazy.cons p scan)
+  let manyTill (monoid: Monoid<_>) inputCons p q =
+    let rec scan = lazy (q >>. ok monoid.Mempty <|> Lazy.cons inputCons p scan)
     scan.Value |> as_ ("manyTill(" + p.ToString() + "," + q.ToString() + ")")
   
   let skipMany p =
@@ -412,12 +412,12 @@ module Parser =
 
   let skipMany1 p = (p >>. skipMany p) |> as_ ("skipMany1(" + p.ToString() + ")")
 
-  let sepBy1 p s =
-    let rec scan = lazy (cons p (Lazy.(>>.) s scan <|> ok []))
+  let sepBy1 (monoid: Monoid<_>) inputCons p s =
+    let rec scan = lazy (cons inputCons p (Lazy.(>>.) s scan <|> ok monoid.Mempty))
     scan.Value |> as_ ("sepBy1(" + p.ToString() + "," + s.ToString() + ")")
 
-  let sepBy p s =
-    cons p ((s >>. sepBy1 p s) <|> ok []) <|> ok []
+  let sepBy (monoid: Monoid<_>) inputCons p s =
+    cons inputCons p ((s >>. sepBy1 monoid inputCons p s) <|> ok monoid.Mempty) <|> ok monoid.Mempty
     |> as_ ("sepBy(" + p.ToString() + "," + s.ToString() + ")")
 
   let inline (<*>) f m = f >>= fun f' -> m >>= fun m' -> ok (f' m')

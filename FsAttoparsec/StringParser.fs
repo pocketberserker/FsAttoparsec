@@ -87,3 +87,19 @@ module String =
     satisfy (inClass "a-zA-Z")
     <|> satisfy Char.IsNumber
   let letter = satisfy Char.IsLetter
+
+  let stringsSepBy p s =
+    cons BmpString.append p ((s >>. sepBy1 BmpString.monoid BmpString.append p s) <|> ok BmpString.monoid.Mempty) <|> ok BmpString.monoid.Mempty
+    |> as_ ("sepBy(" + p.ToString() + "," + s.ToString() + ")")
+
+  let cons m n = cons List.cons m n
+
+  let manySatisfy pred = many BmpString.monoid BmpString.cons (satisfy pred)
+
+  let many p = many List.monoid List.cons p
+  let many1 p = many1 List.monoid List.cons p
+
+  let manyTill p q = manyTill List.monoid List.cons p q
+
+  let sepBy1 p s = sepBy1 List.monoid List.cons p s
+  let sepBy p s = sepBy List.monoid List.cons p s

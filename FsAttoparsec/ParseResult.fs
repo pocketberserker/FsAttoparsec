@@ -1,10 +1,5 @@
 ﻿namespace Attoparsec
 
-[<AbstractClass>]
-type Monoid<'T>() =
-  abstract member Mempty : 'T
-  abstract member Mappend : 'T * 'T -> 'T
-
 type ParseResult<'T, 'U> =
   | Fail of 'T * string list * string
   | Partial of ('T -> ParseResult<'T, 'U>)

@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Prelude.fs" />
     <Compile Include="ParseResult.fs" />
     <Compile Include="Trampoline.fs" />
     <Compile Include="Parser.fs" />

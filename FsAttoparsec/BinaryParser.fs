@@ -49,3 +49,15 @@ module Binary =
   let parse p (Bin init) = parse BinaryArray.monoid p init
 
   let parseAll m init = parse (phrase m) init
+
+  let cons m n = cons BinaryArray.cons m n
+
+  let manySatisfy pred = many BinaryArray.monoid BinaryArray.cons (satisfy pred)
+
+  let many p = many List.monoid List.cons p
+  let many1 p = many1 List.monoid List.cons p
+
+  let manyTill p q = manyTill List.monoid List.cons p q
+
+  let sepBy1 p s = sepBy1 List.monoid List.cons p s
+  let sepBy p s = sepBy List.monoid List.cons p s
