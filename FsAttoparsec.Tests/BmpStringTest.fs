@@ -64,3 +64,24 @@ module BmpStringTest =
         (System.String(Seq.takeWhile f s |> Seq.toArray),
           System.String(Seq.skipWhile f s |> Seq.toArray))
       actual |> should equal expected
+
+  open Helper
+  
+  let monoid = BmpString.monoid
+  let mempty = monoid.Mempty
+  let mappend x y = monoid.Mappend(x, y)
+
+  [<Test>]
+  let ``monoid first law``() =
+    check <| fun (Bmp x) ->
+      mappend mempty x = x
+
+  [<Test>]
+  let ``monoid second law``() =
+    check <| fun (Bmp x) ->
+      mappend x mempty = x
+
+  [<Test>]
+  let ``monoid third law``() =
+    check <| fun (Bmp x) (Bmp y) (Bmp z) ->
+      mappend x (mappend y z) = mappend (mappend x y) z
