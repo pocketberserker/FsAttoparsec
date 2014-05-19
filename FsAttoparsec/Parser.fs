@@ -341,8 +341,15 @@ module Parser =
   let endOfInput<'T when 'T : equality> = endOfInput'<'T> ()
   
   let phrase p = p .>> endOfInput |> as_ ("phrase" + p.ToString())
-  
-  let cons inputCons m n = m >>= (fun x -> n |>> (inputCons x))
+ 
+  type private ConsP<'T, 'U, 'V, 'W>(m: Parser<'T, 'U>, n: unit -> Parser<'T, 'V>, cons: 'U -> 'V -> 'W) =
+    override x.ToString() =  "(" + m.ToString() + ") :: (" + (n ()).ToString() + ")"
+    with
+      interface Parser<'T, 'W> with
+        member x.Apply(st0, kf, ks) =
+          m.Apply(st0, kf, fun (s, a) -> (n ()).Apply(s, kf, (fun (s, b) -> ks (s, cons a b))))
+
+  let cons inputCons m n = ConsP(m, (fun () -> n), inputCons) :> Parser<_, _>
 
   type private OrP<'T, 'U>(m: Parser<'T, 'U>, n: Parser<'T, 'U>) =
     override this.ToString() = IParser.infix ("<|> ...") m
@@ -356,7 +363,7 @@ module Parser =
 
   module private Lazy =
 
-    let cons inputCons m (n: Lazy<_>) = m >>= (fun x -> n.Value |>> (inputCons x))
+    let cons inputCons m (n: Lazy<_>) = ConsP(m, (fun () -> n.Value), inputCons) :> Parser<_, _>
 
     type RightP<'T, 'U, 'V>(p: Parser<'T, 'U>, n: Lazy<Parser<'T, 'V>>) =
       override this.ToString() = IParser.infix (">>. " + n.ToString()) p
