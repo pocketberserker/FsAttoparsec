@@ -23,11 +23,14 @@ let stringLiteral =
   let hex = satisfy (inClass "0-9a-fA-F")
 
   let unicodeEscape =
-    str "u" >>. hex >>= (fun h3 -> hex >>= (fun h2 -> hex >>= (fun h1 -> hex |>> (fun h0 ->
-      let hex2int c = (int c &&& 15) + (int c >>> 6) * 9
+    let hex2int c = (int c &&& 15) + (int c >>> 6) * 9
+    str "u" >>.
+    hex >>= fun h3 ->
+    hex >>= fun h2 ->
+    hex >>= fun h1 ->
+    hex |>> fun h0 ->
       (hex2int h3) * 4096 + (hex2int h2) * 256 + (hex2int h1) * 16 + hex2int h0
       |> char |> string
-    ))))
 
   between (str "\"") (str "\"")
     (stringsSepBy (manySatisfy (fun c -> c <> '"' && c <> '\\')) (str "\\" >>. (escape <|> unicodeEscape)) |>> BmpString.toString)
