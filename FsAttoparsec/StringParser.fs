@@ -52,9 +52,7 @@ module String =
 
   let private addDigit (a: decimal) c = a * 10M + ((decimal (int64  c)) - 48M)
 
-  let pdecimal =
-    takeWhile1 Char.IsDigit
-    |>> (fun x -> x |> BmpString.fold addDigit 0M)
+  let pdecimal = takeWhile1 Char.IsDigit |>> BmpString.fold addDigit 0M
 
   let signedInt = pchar '-' >>. map (~-) pdecimal <|> (pchar '+' >>. pdecimal) <|> pdecimal
 
