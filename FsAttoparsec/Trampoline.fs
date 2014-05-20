@@ -43,3 +43,7 @@ let rec run t =
   match resume t with
   | Choice1Of2 k -> run <| k ()
   | Choice2Of2 x -> x
+
+let inline returnT x = ReturnT(x) :> ITrampoline<_>
+let inline delay f = DelayT(f) :> ITrampoline<_>
+let inline bind t f = BindT(t, f) :> ITrampoline<_>
