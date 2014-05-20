@@ -243,23 +243,23 @@ module Parser =
 
   let elem length head tail p what =
     let what = match what with | Some s -> s | None -> "elem(...)"
-    (ensure length 1 >>. get
-    >>= (fun s ->
+    ensure length 1
+    >>. get
+    >>= fun s ->
       let c = head s
       if p c then put (tail s) >>. ok c
       else error what
-    ))
     |> asOpaque what
 
   let satisfy length head tail p = elem length head tail p (Some "satisfy(...)")
 
   let skip length head tail p what =
     let what = match what with | Some s -> s | None -> "skip(...)"
-    (ensure length 1 >>. get
-    >>= (fun s ->
+    ensure length 1
+    >>. get
+    >>= fun s ->
       if p (head s) then put (tail s)
       else error what
-    ))
     |> asOpaque what
 
   let rec skipWhile (m: Monoid<_>) dropWhile (p: _ -> bool) : Parser<_, unit> = parser {
@@ -273,12 +273,12 @@ module Parser =
 
   let takeWith length splitAt n p what =
     let what = match what with | Some s -> s | None -> "takeWith(...)"
-    (ensure length n >>. get
-    >>= (fun s ->
+    ensure length n
+    >>. get
+    >>= fun s ->
       let (w, h) = splitAt n s
       if p w then put h >>. ok w
       else error what
-    ))
     |> asOpaque what
 
   let take length splitAt n =
@@ -292,23 +292,23 @@ module Parser =
       return!
         if m.Mempty = t then
           wantInput
-          >>= (fun input ->
+          >>= fun input ->
             if input then inner (m.Mappend(h, acc))
-            else ok (m.Mappend(h, acc)))
-        else ok(m.Mappend(h, acc)) }
+            else ok (m.Mappend(h, acc))
+        else ok (m.Mappend(h, acc)) }
     inner m.Mempty
 
   let takeRest (m: Monoid<_>) =
     let rec inner acc = parser {
       let! input = wantInput
       return!
-        if input then get >>= (fun s -> put m.Mempty >>. inner (s :: acc))
+        if input then get >>= fun s -> put m.Mempty >>. inner (s :: acc)
         else ok (List.rev acc)
     }
     inner []
 
   let takeText (m: Monoid<_>) fold =
-    takeRest m |>> (fold (fun a b -> m.Mappend(a, b)) m.Mempty)
+    takeRest m |>> fold (fun a b -> m.Mappend(a, b)) m.Mempty
 
   let private when' (m: Parser<_, unit>) b = if b then m else ok ()
 
@@ -319,7 +319,7 @@ module Parser =
     do! when' (error "takeWhile1") (m.Mempty = h) 
     do! put t
     return!
-      if t = m.Mempty then takeWhile m span p |>> (fun x -> m.Mappend(h, x)) else ok h
+      if t = m.Mempty then takeWhile m span p |>> fun x -> m.Mappend(h, x) else ok h
   }
 
   type private EndOfInputP<'T when 'T : equality>() =
@@ -327,7 +327,7 @@ module Parser =
     with
       interface Parser<'T, unit> with
         member this.Apply(st0, kf, ks) =
-          if (st0.Input = st0.Monoid.Mempty) then
+          if st0.Input = st0.Monoid.Mempty then
             if st0.Complete then ks (st0, ())
             else
               let kf = fun (st1, stack, msg) -> ks (st0 + st1, ())
@@ -394,10 +394,10 @@ module Parser =
         match scanner s 0 input with
         | Continue sp ->
           put m.Mempty >>. wantInput
-          >>= (fun more -> if more then inner (input :: acc) sp else ok (input :: acc))
+          >>= fun more -> if more then inner (input :: acc) sp else ok (input :: acc)
         | Finished(n, t) ->
           let i = input |> take n
-          put t >>= (fun () -> ok (i :: acc))
+          put t >>= fun () -> ok (i :: acc)
     }
     parser {
       let! chunks = inner [] s
