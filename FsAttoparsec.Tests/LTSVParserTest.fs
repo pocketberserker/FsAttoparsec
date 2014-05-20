@@ -19,10 +19,10 @@ module LTSVTest =
   let fieldValue = takeWhile (string >> isMatch "[\x01-\x080\x0B\x0C\x0E-\xFF]")
   let field =
     (fun k v -> (BmpString.toString k, BmpString.toString v))
-    <!> label <*> (string_ (intToCharStr 0x3A) *> fieldValue)
+    <!> label <*> (pstring (intToCharStr 0x3A) *> fieldValue)
   let record: Parser<_, Record> =
-    Map.ofList <!> (sepBy field (string_ (intToCharStr 0x09)))
-  let nl = opt (string_ (intToCharStr 0x0D)) *> string_ (intToCharStr 0x0A)
+    Map.ofList <!> (sepBy field (pstring (intToCharStr 0x09)))
+  let nl = opt (pstring (intToCharStr 0x0D)) *> pstring (intToCharStr 0x0A)
   let ltsv: Parser<_, LTSV> = sepBy record nl
   let parseField input = input |> parse field |> ParseResult.feed ""
   let parseRecord input = input |> parse record |> ParseResult.feed ""

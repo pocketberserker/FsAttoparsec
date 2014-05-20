@@ -65,7 +65,7 @@ module Token =
     let oneLineComment languageDef =
       let commentLine = BmpString.toString languageDef.CommentLine
       parser {
-      let! _ = string_ commentLine
+      let! _ = pstring commentLine
       do! skipMany (satisfy ((<>) '\n'))
       return ()
     }
@@ -79,7 +79,7 @@ module Token =
 
     let rec inCommentSingle languageDef =
       let commentEnd = BmpString.toString languageDef.CommentEnd
-      (string_ commentEnd >>. ok ())
+      (pstring commentEnd >>. ok ())
       <|> parser {
         do! skipMany1 (noneOf (startEnd languageDef))
         return! inCommentSingle languageDef }
@@ -94,7 +94,7 @@ module Token =
 
     and inCommentMulti languageDef =
       let commentEnd = BmpString.toString languageDef.CommentEnd
-      (string_ commentEnd >>. ok ())
+      (pstring commentEnd >>. ok ())
       <|> parser {
         do! multiLineComment languageDef
         return! inCommentMulti languageDef }
@@ -108,7 +108,7 @@ module Token =
 
     and multiLineComment languageDef =
       let commentStart = BmpString.toString languageDef.CommentStart
-      (string_ commentStart) >>. (inComment languageDef)
+      (pstring commentStart) >>. (inComment languageDef)
 
     let noLine languageDef = BmpString.isEmpty languageDef.CommentLine
     let noMulti languageDef = BmpString.isEmpty languageDef.CommentStart
@@ -126,7 +126,7 @@ module Token =
       return x
     }
 
-    let symbol languageDef name = lexeme languageDef (string_ name)
+    let symbol languageDef name = lexeme languageDef (pstring name)
 
     let parens languageDef p = between (symbol languageDef "(") (symbol languageDef ")") p
     let braces languageDef p = between (symbol languageDef "{") (symbol languageDef "}") p
@@ -147,7 +147,7 @@ module Token =
     let escMap = Seq.zip "abfnrtv\\\"\'" "\a\b\f\n\r\t\v\\\"\'" |> Seq.toList
 
     let charEsc =
-      let parseEsc (c, code) = char_ c >>% code
+      let parseEsc (c, code) = pchar c >>% code
       choice (List.map parseEsc escMap)
 
     let number base_ baseDigit = parser {
@@ -169,9 +169,9 @@ module Token =
 
     let charNum = parser {
       let! code =
-        decimal_
-        <|> (char_ 'o' >>. number 8M octDigit)
-        <|> (char_ 'x' >>. number 16M hexDigit)
+        pdecimal
+        <|> (pchar 'o' >>. number 8M octDigit)
+        <|> (pchar 'x' >>. number 16M hexDigit)
       return char code
     }
 
@@ -188,11 +188,11 @@ module Token =
     let asciiMap = List.zip (List.append ascii3codes ascii2codes) (List.append ascii3 ascii2)
 
     let  charAscii =
-      let parseAscii (asc, code) = string_ asc >>% code
+      let parseAscii (asc, code) = pstring asc >>% code
       choice (List.map parseAscii asciiMap)
 
     let charControl = parser {
-      let! _ = char_ '^'
+      let! _ = pchar '^'
       let! code = satisfy (inClass "A-Z")
       return char (int code - int 'A')
     }
@@ -200,7 +200,7 @@ module Token =
     let escapeCode = charEsc <|> charNum <|> charAscii <|> charControl <?> "escape code"
 
     let charEscape = parser {
-      let! _ = char_ '\\'
+      let! _ = pchar '\\'
       return! escapeCode
     }
 
@@ -208,17 +208,17 @@ module Token =
     
     let characterChar = charLetter <|> charEscape <?> "literal character"
     let charLiteral languageDef =
-      lexeme languageDef (between (char_ '\'') (char_ '\'' <?> "end of character") characterChar ) <?> "character"
+      lexeme languageDef (between (pchar '\'') (pchar '\'' <?> "end of character") characterChar ) <?> "character"
 
     let stringLetter = satisfy (fun c -> (c <> '"') && (c <> '\\') && (c > '\026'))
 
-    let escapeEmpty = char_ '&'
+    let escapeEmpty = pchar '&'
     let escapeGap = parser {
       let! _= many1 (satisfy Char.IsWhiteSpace)
-      return! char_ '\\' <?> "end of string gap"
+      return! pchar '\\' <?> "end of string gap"
     }
     let stringEscape = parser {
-      let! _ = char_ '\\'
+      let! _ = pchar '\\'
       return!
         (escapeGap >>% None)
         <|> (escapeEmpty >>% None)
@@ -234,7 +234,7 @@ module Token =
 
     let stringLiteral languageDef =
       lexeme languageDef (parser {
-        let! str = between (char_ '"') (char_ '"' <?> "end of string") (many stringChar)
+        let! str = between (pchar '"') (pchar '"' <?> "end of string") (many stringChar)
         return List.foldBack (maybe id BmpString.cons) str BmpString.empty
       } <?> "literal string")
 
@@ -243,15 +243,15 @@ module Token =
 
     let zeroNumber =
       parser {
-        let! _ = char_ '0'
-        return! hexadecimal <|> octal <|> decimal_ <|> ok 0M
+        let! _ = pchar '0'
+        return! hexadecimal <|> octal <|> pdecimal <|> ok 0M
       } <?> ""
 
-    let nat = zeroNumber <|> decimal_
+    let nat = zeroNumber <|> pdecimal
 
     let sign =
-      (char_ '-' >>. ok (~-))
-      <|> (char_ '+' >>. ok id)
+      (pchar '-' >>. ok (~-))
+      <|> (pchar '+' >>. ok id)
       <|> ok id
 
     let int_ languageDef = parser {
@@ -273,7 +273,7 @@ module Token =
       parser {
         let! _ = oneOf (BmpString.ofString "eE")
         let! f = sign
-        let! e = decimal_ <?> "exponent"
+        let! e = pdecimal <?> "exponent"
         return power (f e)
       } <?> "exponent"
 
@@ -282,7 +282,7 @@ module Token =
     let fraction =
       let op d f = (f + (float d)) / 10.0
       parser {
-        let _ = char_ '.'
+        let _ = pchar '.'
         let! digits = many1 digit <?> "fraction"
         return (List.foldBack op digits 0.0)
       } <?> "fraction"
@@ -302,7 +302,7 @@ module Token =
     let fractFloat n = fractExponent n |>> Choice1Of2
 
     let decimalFloat = parser {
-      let! n = decimal_
+      let! n = pdecimal
       return! option (Choice2Of2 n) (fractFloat n)
     }
 
@@ -315,9 +315,9 @@ module Token =
       <|> fractFloat 0M
       <|> ok (Choice2Of2 0M)
 
-    let natFloat = char_ '0' >>. zeroNumFloat <|> decimalFloat
+    let natFloat = pchar '0' >>. zeroNumFloat <|> decimalFloat
 
-    let floating = decimal_ >>= fractExponent
+    let floating = pdecimal >>= fractExponent
 
     let naturalOrFloat languageDef = lexeme languageDef (natFloat) <?> "number"
 
@@ -330,7 +330,7 @@ module Token =
 
     let reservedOp languageDef name =
       lexeme languageDef (parser {
-        let! _ = string_ name
+        let! _ = pstring name
         return! notFollowedBy (languageDef.OpLetter) <?> ("end of " + name)
       })
 
@@ -363,14 +363,14 @@ module Token =
 
     let caseString languageDef name =
       let caseChar c =
-        if inClass "a-zA-Z" c then char_ (Char.ToLower c) <|> char_ (Char.ToUpper c)
-        else char_ c
+        if inClass "a-zA-Z" c then pchar (Char.ToLower c) <|> pchar (Char.ToUpper c)
+        else pchar c
       let rec walk t =
         if BmpString.isEmpty t then ok ()
         else
           let c, cs = BmpString.head t, BmpString.tail t
           (caseChar (char c) <?> name) >>. walk cs
-      if languageDef.CaseSensitive then string_ name
+      if languageDef.CaseSensitive then pstring name
       else
         let name = BmpString.ofString name
         parser {
@@ -428,7 +428,7 @@ module Token =
     Integer = integer languageDef |>> int
     Float = float_ languageDef |>> float
     NaturalOrFloat = naturalOrFloat languageDef |>> (function Choice1Of2 a -> Choice1Of2 (int a) | Choice2Of2 b -> Choice2Of2 (float b))
-    Decimal = decimal_
+    Decimal = pdecimal
     Hexadecimal = hexadecimal
     Octal = octal
     Symbol = symbol languageDef
@@ -458,7 +458,7 @@ module Token =
         CommentEnd     = BmpString.empty
         CommentLine    = BmpString.empty
         NestedComments = true
-        IdentStart     = letter <|> (char_ '_')
+        IdentStart     = letter <|> (pchar '_')
         IdentLetter    = alphaNum <|> (String.oneOf "_'")
         OpStart        = op
         OpLetter       = op

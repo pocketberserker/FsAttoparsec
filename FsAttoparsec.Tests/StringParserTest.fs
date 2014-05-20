@@ -27,7 +27,7 @@ module StringParserTest =
     check <| fun w s ->
       let actual =
         cons w s
-        |> parse (char_ w)
+        |> parse (pchar w)
         |> ParseResult.option
       actual = Some w
 
@@ -46,7 +46,7 @@ module StringParserTest =
   [<Test>]
   let ``string`` () =
     check <| fun s t ->
-      (parse (string_ s) (s + t)).Option
+      (parse (pstring s) (s + t)).Option
       |> Option.map BmpString.toString = Some s
 
   [<Test>]

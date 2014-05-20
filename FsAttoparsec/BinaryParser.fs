@@ -37,7 +37,7 @@ module Binary =
 
   let takeText = takeText BinaryArray.monoid List.fold
 
-  let byte_ c = elem ((=) c) (Some ("'" + (string c) + "'"))
+  let pbyte c = elem ((=) c) (Some ("'" + (string c) + "'"))
   let bytes (Bin b) =
     takeWith (BinaryArray.length b) ((=) b) (Some (b.ToString()))
 

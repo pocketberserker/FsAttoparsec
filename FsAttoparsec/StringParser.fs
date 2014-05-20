@@ -39,9 +39,9 @@ module String =
 
   let takeText = takeText monoid List.fold
 
-  let char_ c = elem ((=) c) (Some ("'" + (string c) + "'"))
+  let pchar c = elem ((=) c) (Some ("'" + (string c) + "'"))
   
-  let string_ (Bmp s) =
+  let pstring (Bmp s) =
     takeWith (BmpString.length s) ((=) s) (Some ("\"" + (BmpString.toString s) + "\""))
 
   let stringTransform f (Bmp s) what =
@@ -52,15 +52,15 @@ module String =
 
   let private addDigit (a: decimal) c = a * 10M + ((decimal (int64  c)) - 48M)
 
-  let decimal_ =
+  let pdecimal =
     takeWhile1 Char.IsDigit
     |>> (fun x -> x |> BmpString.fold addDigit 0M)
 
-  let signedInt = char_ '-' >>. map (~-) decimal_ <|> (char_ '+' >>. decimal_) <|> decimal_
+  let signedInt = pchar '-' >>. map (~-) pdecimal <|> (pchar '+' >>. pdecimal) <|> pdecimal
 
   let scientific = parser {
     let! positive = satisfy (fun c -> c = '-' || c = '+') |>> ((=) '+') <|> ok true
-    let! n = decimal_
+    let! n = pdecimal
     let! s =
       (satisfy ((=) '.') >>. takeWhile Char.IsDigit
       |>> (fun f -> decimal ((string n) + "." + (BmpString.toString f))))

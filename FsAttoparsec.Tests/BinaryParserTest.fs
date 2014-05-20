@@ -28,7 +28,7 @@ module BinaryParserTest =
     check <| fun b xs ->
       let actual =
         Array.cons b xs
-        |> parse (byte_ b)
+        |> parse (pbyte b)
         |> ParseResult.option
       actual = Some b
 

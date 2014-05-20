@@ -7,7 +7,7 @@ open Helper
 open Ast
 
 let ws = spaces
-let str = string_
+let str = pstring
 
 let stringLiteral =
   let escape =
@@ -41,9 +41,9 @@ let pfloat = scientific |>> float
 
 let jnumber = pfloat |>> JNumber
 
-let jtrue  = string_ "true" >>% (JBool true)
-let jfalse = string_ "false" >>% (JBool false)
-let jnull  = string_ "null" >>% JNull
+let jtrue  = pstring "true" >>% (JBool true)
+let jfalse = pstring "false" >>% (JBool false)
+let jnull  = pstring "null" >>% JNull
 
 let jvalue, jvalueRef = createParserForwardedToRef()
 
