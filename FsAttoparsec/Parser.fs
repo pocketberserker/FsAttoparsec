@@ -154,7 +154,7 @@ module Parser =
     match Trampoline.run <| parser.Apply(state, kf, ks) with
     | Fail(_, _, e) -> Choice2Of2 e
     | Done(_, a) -> Choice1Of2 a
-    | _ -> failwith "parseOnly: Parser returned a partial result"
+    | Partial _ -> Choice2Of2 "parseOnly: Parser returned a partial result"
 
   let prompt st kf ks = Partial (fun s ->
     let m = st.Monoid
