@@ -39,6 +39,7 @@ type Parser<'T, 'U> =
 module private IParser =
   let infix s p = "(" + p.ToString() + ") " + s
 
+[<Sealed>]
 type private BindP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> Parser<'T, 'V>) =
   override this.ToString() = IParser.infix "bind ..." p
   with
@@ -47,6 +48,7 @@ type private BindP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> Parser<'T, 'V>) =
         let ks = fun (s, a) -> (f a).Apply(s, kf, ks)
         delay <| fun () -> p.Apply(st0, kf, ks)
 
+[<Sealed>]
 type private MapP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> 'V) =
   override x.ToString() =  IParser.infix "map ..." p
   with
@@ -54,6 +56,7 @@ type private MapP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> 'V) =
       member x.Apply(st0, kf, ks) =
         delay <| fun () -> p.Apply(st0, kf, (fun (s, a) -> delay <| fun () -> ks (s, f a)))
 
+[<Sealed>]
 type private FilterP<'T, 'U>(p: Parser<'T, 'U>, pred: 'U -> bool) =
   override x.ToString() =  IParser.infix "filter ..." p
   with
@@ -61,6 +64,7 @@ type private FilterP<'T, 'U>(p: Parser<'T, 'U>, pred: 'U -> bool) =
       member x.Apply(st0, kf, ks) =
         p.Apply(st0, kf, (fun (s, a) -> if pred a then ks (s, a) else kf(s, [], "withFilter")))
 
+[<Sealed>]
 type private AsP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
   override x.ToString() = s
   with
@@ -69,6 +73,7 @@ type private AsP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
         let kf = fun (st1, stack, msg) -> kf (st1, s :: stack, msg)
         p.Apply(st0, kf, ks)
 
+[<Sealed>]
 type private AsOpaqueP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
   override x.ToString() = s
   with
@@ -77,6 +82,7 @@ type private AsOpaqueP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
         let kf = fun (st1, stack, msg) -> kf (st1, [], "Failure reading:" + s)
         p.Apply(st0, kf, ks)
 
+[<Sealed>]
 type private ReturnP<'T, 'U>(a: 'U) =
   override x.ToString() =
     match box a with
@@ -86,6 +92,7 @@ type private ReturnP<'T, 'U>(a: 'U) =
     interface Parser<'T, 'U> with
       member x.Apply(st0, _, ks) = ks (st0, a)
 
+[<Sealed>]
 type private ErrorP<'T, 'U>(what: string) =
   override x.ToString() = "error(" + what + ")"
   with
@@ -159,6 +166,7 @@ module Parser =
     if s = m.Mempty then delay <| fun () -> kf { st with Complete = true }
     else delay <| fun () -> ks { st with Input = m.Mappend(st.Input, s); Complete = false })
 
+  [<Sealed>]
   type private DemandInputP<'T when 'T : equality>() =
     override this.ToString() = "demandInput"
     with
@@ -172,6 +180,7 @@ module Parser =
   let inline private demandInput'<'T when 'T : equality> () = DemandInputP<'T>() :> Parser<'T, unit>
   let demandInput<'T when 'T : equality> = demandInput'<'T> ()
 
+  [<Sealed>]
   type private RightP<'T, 'U, 'V>(p: Parser<'T, 'U>, n: Parser<'T, 'V>) =
     override this.ToString() = IParser.infix (">>. " + n.ToString()) p
     with
@@ -180,6 +189,7 @@ module Parser =
 
   let (>>.) (p: Parser<_, _>) (n: Parser<_, _>) = RightP<_, _, _>(p, n) :> Parser<_, _>
 
+  [<Sealed>]
   type private LeftP<'T, 'U, 'V>(m: Parser<'T, 'U>, n: Parser<'T, 'V>) =
     override this.ToString() = IParser.infix (".>> " + n.ToString()) m
     with
@@ -188,6 +198,7 @@ module Parser =
   
   let (.>>) (m: Parser<_, _>) (n: Parser<_, _>) = LeftP<_, _, _>(m, n) :> Parser<_, _>
 
+  [<Sealed>]
   type private EnsureSuspendedP<'T when 'T : equality>(length: 'T -> int, sub: int -> int -> 'T -> 'T, st: State<'T>, n: int) =
     override this.ToString() = "ensureSuspended(" + string n + ")"
     with
@@ -198,6 +209,7 @@ module Parser =
 
   let ensureSuspended length sub st n = EnsureSuspendedP(length, sub, st, n) :> Parser<_, _>
 
+  [<Sealed>]
   type private EnsureP<'T when 'T : equality>(length: 'T -> int, sub: int -> int -> 'T -> 'T, n: int) =
     override this.ToString() = "ensure(" + string n + ")"
     with
@@ -208,6 +220,7 @@ module Parser =
 
   let ensure (length: 'T -> int) sub n = EnsureP<_>(length, sub, n) :> Parser<_, _>
 
+  [<Sealed>]
   type private WantInputP<'T when 'T : equality>(length: 'T -> int) =
     override this.ToString() = "wantInput"
     with
@@ -221,6 +234,7 @@ module Parser =
 
   let atEnd length = wantInput length |>> not
 
+  [<Sealed>]
   type private GetP<'T>(skip: int -> 'T -> 'T) =
     override this.ToString() = "get"
     with
@@ -240,6 +254,7 @@ module Parser =
       else error what
     |> asOpaque what
 
+  [<Sealed>]
   type private EndOfChunkP<'T>(length: 'T -> int) =
     override this.ToString() = "endOfChunk"
     with
@@ -323,6 +338,7 @@ module Parser =
           else ok s
   }
 
+  [<Sealed>]
   type private EndOfInputP<'T when 'T : equality>(length: 'T -> int) =
     override this.ToString() = "endOfInput"
     with
@@ -339,6 +355,7 @@ module Parser =
   
   let phrase length p = p .>> endOfInput length |> as_ ("phrase" + p.ToString())
  
+  [<Sealed>]
   type private ConsP<'T, 'U, 'V, 'W>(m: Parser<'T, 'U>, n: unit -> Parser<'T, 'V>, cons: 'U -> 'V -> 'W) =
     override x.ToString() =  "(" + m.ToString() + ") :: (" + (n ()).ToString() + ")"
     with
@@ -348,6 +365,7 @@ module Parser =
 
   let cons inputCons m n = ConsP(m, (fun () -> n), inputCons) :> Parser<_, _>
 
+  [<Sealed>]
   type private OrP<'T, 'U>(m: Parser<'T, 'U>, n: Parser<'T, 'U>) =
     override this.ToString() = IParser.infix ("<|> ...") m
     with
@@ -362,6 +380,7 @@ module Parser =
 
     let cons inputCons m (n: Lazy<_>) = ConsP(m, (fun () -> n.Value), inputCons) :> Parser<_, _>
 
+    [<Sealed>]
     type RightP<'T, 'U, 'V>(p: Parser<'T, 'U>, n: Lazy<Parser<'T, 'V>>) =
       override this.ToString() = IParser.infix (">>. " + n.ToString()) p
       with
@@ -442,6 +461,7 @@ module Parser =
 
   let between pBegin pEnd p = pBegin >>. p .>> pEnd
 
+  [<Sealed>]
   type private MessageP<'T, 'U>(p: Parser<'T, 'U>, message: string) =
     override this.ToString() = IParser.infix ("<?> " + message) p
     with
@@ -454,6 +474,7 @@ module Parser =
 
   let option x p = p <|> ok x
 
+  [<Sealed>]
   type private RefP<'T, 'U>(refParser: Parser<'T, 'U> ref) =
     override this.ToString() = (!refParser).ToString()
     with
@@ -465,6 +486,7 @@ module Parser =
     let fwdParser = RefP(refParser) :> Parser<_, _>
     (fwdParser, refParser)
 
+  [<Sealed>]
   type private Tuple2P<'T, 'U, 'V>(p1: Parser<'T, 'U>, p2: Parser<'T, 'V>) =
     override this.ToString() = IParser.infix (".>>. " + p2.ToString()) p1
     with
@@ -476,6 +498,7 @@ module Parser =
   let tuple2 p1 p2 = Tuple2P(p1, p2)  :> Parser<_, _>
   let inline (.>>.) p1 p2 = tuple2 p1 p2
 
+  [<Sealed>]
   type private MatchP<'T, 'U>(p: Parser<'T, 'U>, sub: int -> int -> 'T -> 'T) =
     override this.ToString() = "match(" + p.ToString() + ")"
     interface Parser<'T, 'T * 'U> with
@@ -485,6 +508,7 @@ module Parser =
 
   let match_ sub p = MatchP(p, sub) :> Parser<_, _>
 
+  [<Sealed>]
   type private PositionP<'T>() =
     override this.ToString() = "getPosition"
     with
