@@ -355,11 +355,12 @@ module Parser =
  
   [<Sealed>]
   type private ConsP<'T, 'U, 'V, 'W>(m: Parser<'T, 'U>, n: unit -> Parser<'T, 'V>, cons: 'U -> 'V -> 'W) =
+    let cons = OptimizedClosures.FSharpFunc<_, _, _>.Adapt(cons)
     override x.ToString() =  "(" + m.ToString() + ") :: (" + (n ()).ToString() + ")"
     with
       interface Parser<'T, 'W> with
         member x.Apply(st0, kf, ks) =
-          m.Apply(st0, kf, fun (s, a) -> (n ()).Apply(s, kf, (fun (s, b) -> ks (s, cons a b))))
+          m.Apply(st0, kf, fun (s, a) -> (n ()).Apply(s, kf, (fun (s, b) -> ks (s, cons.Invoke(a, b)))))
 
   let cons inputCons m n = ConsP(m, (fun () -> n), inputCons) :> Parser<_, _>
 

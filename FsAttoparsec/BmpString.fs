@@ -183,11 +183,12 @@ module BmpString =
     else append hd bs
     
   let fold f seed bs =
+    let optF = OptimizedClosures.FSharpFunc<_, _, _>.Adapt(f)
     let rec loop bs acc =
       if isEmpty bs then acc 
       else
         let hd, tl = head bs, tail bs
-        loop tl (f acc hd)
+        loop tl (optF.Invoke(acc, hd))
     loop bs seed
   
   let split pred (bs:BmpString) =
