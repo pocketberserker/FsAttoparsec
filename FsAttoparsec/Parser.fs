@@ -1,7 +1,5 @@
 ﻿namespace Attoparsec
 
-open Trampoline
-
 type Pos = int
 
 type State<'T> = {
@@ -18,23 +16,23 @@ module Internal =
 
   type Result<'T, 'U> =
     | Fail of 'T * string list * string
-    | Partial of ('T -> ITrampoline<Result<'T, 'U>>)
+    | Partial of ('T -> Trampoline<Result<'T, 'U>>)
     | Done of 'T * 'U
     with
       member this.Translate =
         match this with
         | Fail(input, stack, message) -> ParseResult.Fail(input, stack, message)
-        | Partial k -> ParseResult.Partial (fun a -> (Trampoline.run (k a)).Translate)
+        | Partial k -> ParseResult.Partial (fun a -> (Free.run F0.functor_ F0.run (k a)).Translate)
         | Done(input, result) -> ParseResult.Done(input, result)
 
   module Result =
     let inline translate (result: Result<_, _>) = result.Translate
 
-type Failure<'T, 'U> = State<'T> * string list * string -> ITrampoline<Internal.Result<'T, 'U>>
-type Success<'T, 'U, 'V> = State<'T> * 'U -> ITrampoline<Internal.Result<'T, 'V>>
+type Failure<'T, 'U> = State<'T> * string list * string -> Trampoline<Internal.Result<'T, 'U>>
+type Success<'T, 'U, 'V> = State<'T> * 'U -> Trampoline<Internal.Result<'T, 'V>>
   
 type Parser<'T, 'U> =
-  abstract member Apply: State<'T> * Failure<'T, 'V> * Success<'T, 'U, 'V> -> ITrampoline<Internal.Result<'T, 'V>>
+  abstract member Apply: State<'T> * Failure<'T, 'V> * Success<'T, 'U, 'V> -> Trampoline<Internal.Result<'T, 'V>>
 
 module private IParser =
   let infix s p = "(" + p.ToString() + ") " + s
@@ -46,7 +44,7 @@ type private BindP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> Parser<'T, 'V>) =
     interface Parser<'T, 'V> with
       member this.Apply(st0, kf, ks) =
         let ks = fun (s, a) -> (f a).Apply(s, kf, ks)
-        delay <| fun () -> p.Apply(st0, kf, ks)
+        Trampoline.suspend <| fun () -> p.Apply(st0, kf, ks)
 
 [<Sealed>]
 type private MapP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> 'V) =
@@ -54,7 +52,7 @@ type private MapP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> 'V) =
   with
     interface Parser<'T, 'V> with
       member x.Apply(st0, kf, ks) =
-        delay <| fun () -> p.Apply(st0, kf, (fun (s, a) -> delay <| fun () -> ks (s, f a)))
+        Trampoline.suspend <| fun () -> p.Apply(st0, kf, (fun (s, a) -> ks (s, f a)))
 
 [<Sealed>]
 type private FilterP<'T, 'U>(p: Parser<'T, 'U>, pred: 'U -> bool) =
@@ -113,10 +111,10 @@ module Parser =
       Complete = false
       Monoid = m
     }
-    let kf = fun (a, b, c) -> returnT <| Internal.Fail(skip a.Pos a.Input, b, c)
-    let ks = fun (a, b) -> returnT <| Internal.Done(skip a.Pos a.Input, b)
+    let kf = fun (a, b, c) -> Free.done_ <| Internal.Fail(skip a.Pos a.Input, b, c)
+    let ks = fun (a, b) -> Free.done_ <| Internal.Done(skip a.Pos a.Input, b)
     p.Apply(st, kf, ks)
-    |> Trampoline.run
+    |> Free.run F0.functor_ F0.run
     |> Internal.Result.translate
 
   let bind f p = BindP<_, _, _>(p, f) :> Parser<_, _>
@@ -145,9 +143,9 @@ module Parser =
 
   let parseOnly skip (m: Monoid<_>) (parser: Parser<_, _>) input =
     let state = { Input = input; Pos = 0; Complete = true; Monoid = m }
-    let kf = fun (a, b, c) -> returnT <| Internal.Fail(skip a.Pos a.Input, b, c)
-    let ks = fun (a, b) -> returnT <| Internal.Done(skip a.Pos a.Input, b)
-    match Trampoline.run <| parser.Apply(state, kf, ks) with
+    let kf = fun (a, b, c) -> Free.done_ <| Internal.Fail(skip a.Pos a.Input, b, c)
+    let ks = fun (a, b) -> Free.done_ <| Internal.Done(skip a.Pos a.Input, b)
+    match Free.run F0.functor_ F0.run <| parser.Apply(state, kf, ks) with
     | Fail(_, _, e) -> Choice2Of2 e
     | Done(_, a) -> Choice1Of2 a
     | Partial _ -> Choice2Of2 "parseOnly: Parser returned a partial result"
@@ -163,8 +161,8 @@ module Parser =
 
   let prompt st kf ks = Partial (fun s ->
     let m = st.Monoid
-    if s = m.Mempty then delay <| fun () -> kf { st with Complete = true }
-    else delay <| fun () -> ks { st with Input = m.Mappend(st.Input, s); Complete = false })
+    if s = m.Mempty then Trampoline.suspend <| fun () -> kf { st with Complete = true }
+    else Trampoline.suspend <| fun () -> ks { st with Input = m.Mappend(st.Input, s); Complete = false })
 
   [<Sealed>]
   type private DemandInputP<'T when 'T : equality>() =
@@ -173,9 +171,9 @@ module Parser =
       interface Parser<'T, unit> with
         member this.Apply(st0, kf, ks) =
           if st0.Complete then
-            delay <| fun () -> kf (st0, [], "not enough input")
+            Trampoline.suspend <| fun () -> kf (st0, [], "not enough input")
           else
-            returnT <| prompt st0 (fun st -> kf (st, [], "not enough input")) (fun a -> ks (a, ()))
+            Free.done_ <| prompt st0 (fun st -> kf (st, [], "not enough input")) (fun a -> ks (a, ()))
 
   let inline private demandInput'<'T when 'T : equality> () = DemandInputP<'T>() :> Parser<'T, unit>
   let demandInput<'T when 'T : equality> = demandInput'<'T> ()
@@ -228,7 +226,7 @@ module Parser =
         member this.Apply(st0, kf, ks) =
           if length st0.Input >= st0.Pos + 1 then ks (st0, true)
           elif st0.Complete then ks (st0, false)
-          else returnT <| prompt st0 (fun a -> ks (a, false)) (fun a -> ks (a, true))
+          else Free.done_ <| prompt st0 (fun a -> ks (a, false)) (fun a -> ks (a, true))
 
   let wantInput length = WantInputP<_>(length) :> Parser<_, _>
 
@@ -492,8 +490,8 @@ module Parser =
     with
       interface Parser<'T, 'U * 'V> with
         member this.Apply(st0, kf, ks) =
-          let ks (s, a) = p2.Apply(s, kf, (fun (s, b) -> delay <| fun () -> ks (s, (a, b))))
-          delay <| fun () -> p1.Apply(st0, kf, ks)
+          let ks (s, a) = p2.Apply(s, kf, (fun (s, b) -> Trampoline.suspend <| fun () -> ks (s, (a, b))))
+          Trampoline.suspend <| fun () -> p1.Apply(st0, kf, ks)
 
   let tuple2 p1 p2 = Tuple2P(p1, p2)  :> Parser<_, _>
   let inline (.>>.) p1 p2 = tuple2 p1 p2
