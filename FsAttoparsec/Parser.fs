@@ -28,8 +28,8 @@ module Internal =
   module Result =
     let inline translate (result: Result<_, _>) = result.Translate
 
-type Failure<'T, 'U> = State<'T> * string list * string -> Trampoline<Internal.Result<'T, 'U>>
-type Success<'T, 'U, 'V> = State<'T> * 'U -> Trampoline<Internal.Result<'T, 'V>>
+type Failure<'T, 'U> = State<'T> -> string list -> string -> Trampoline<Internal.Result<'T, 'U>>
+type Success<'T, 'U, 'V> = State<'T> -> 'U -> Trampoline<Internal.Result<'T, 'V>>
   
 type Parser<'T, 'U> =
   abstract member Apply: State<'T> * Failure<'T, 'V> * Success<'T, 'U, 'V> -> Trampoline<Internal.Result<'T, 'V>>
@@ -43,7 +43,7 @@ type private BindP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> Parser<'T, 'V>) =
   with
     interface Parser<'T, 'V> with
       member this.Apply(st0, kf, ks) =
-        let ks = fun (s, a) -> (f a).Apply(s, kf, ks)
+        let ks = fun s a -> (f a).Apply(s, kf, ks)
         Trampoline.suspend <| fun () -> p.Apply(st0, kf, ks)
 
 [<Sealed>]
@@ -52,7 +52,7 @@ type private MapP<'T, 'U, 'V>(p: Parser<'T, 'U>, f: 'U -> 'V) =
   with
     interface Parser<'T, 'V> with
       member x.Apply(st0, kf, ks) =
-        Trampoline.suspend <| fun () -> p.Apply(st0, kf, (fun (s, a) -> ks (s, f a)))
+        Trampoline.suspend <| fun () -> p.Apply(st0, kf, (fun s a -> ks s (f a)))
 
 [<Sealed>]
 type private FilterP<'T, 'U>(p: Parser<'T, 'U>, pred: 'U -> bool) =
@@ -60,7 +60,7 @@ type private FilterP<'T, 'U>(p: Parser<'T, 'U>, pred: 'U -> bool) =
   with
     interface Parser<'T, 'U> with
       member x.Apply(st0, kf, ks) =
-        p.Apply(st0, kf, (fun (s, a) -> if pred a then ks (s, a) else kf(s, [], "withFilter")))
+        p.Apply(st0, kf, (fun s a -> if pred a then ks s a else kf s [] "withFilter"))
 
 [<Sealed>]
 type private AsP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
@@ -68,7 +68,7 @@ type private AsP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
   with
     interface Parser<'T, 'U> with
       member x.Apply(st0, kf, ks) =
-        let kf = fun (st1, stack, msg) -> kf (st1, s :: stack, msg)
+        let kf = fun st1 stack msg -> kf st1 (s :: stack) msg
         p.Apply(st0, kf, ks)
 
 [<Sealed>]
@@ -77,7 +77,7 @@ type private AsOpaqueP<'T, 'U>(p: Parser<'T, 'U>, s: string) =
   with
     interface Parser<'T, 'U> with
       member x.Apply(st0, kf, ks) =
-        let kf = fun (st1, stack, msg) -> kf (st1, [], "Failure reading:" + s)
+        let kf = fun st1 stack msg -> kf st1 [] ("Failure reading:" + s)
         p.Apply(st0, kf, ks)
 
 [<Sealed>]
@@ -88,14 +88,14 @@ type private ReturnP<'T, 'U>(a: 'U) =
     | _ -> "ok(" + a.ToString() + ")"
   with
     interface Parser<'T, 'U> with
-      member x.Apply(st0, _, ks) = ks (st0, a)
+      member x.Apply(st0, _, ks) = ks st0 a
 
 [<Sealed>]
 type private ErrorP<'T, 'U>(what: string) =
   override x.ToString() = "error(" + what + ")"
   with
     interface Parser<'T, 'U> with
-      member x.Apply(st0, kf, _) = kf (st0, [], "Failed reading: " + what)
+      member x.Apply(st0, kf, _) = kf st0 [] ("Failed reading: " + what)
 
 [<AutoOpen>]
 module Parser =
@@ -111,8 +111,8 @@ module Parser =
       Complete = false
       Monoid = m
     }
-    let kf = fun (a, b, c) -> Free.done_ <| Internal.Fail(skip a.Pos a.Input, b, c)
-    let ks = fun (a, b) -> Free.done_ <| Internal.Done(skip a.Pos a.Input, b)
+    let kf = fun a b c -> Free.done_ <| Internal.Fail(skip a.Pos a.Input, b, c)
+    let ks = fun a b -> Free.done_ <| Internal.Done(skip a.Pos a.Input, b)
     p.Apply(st, kf, ks)
     |> Free.run F0.functor_ F0.run
     |> Internal.Result.translate
@@ -143,8 +143,8 @@ module Parser =
 
   let parseOnly skip (m: Monoid<_>) (parser: Parser<_, _>) input =
     let state = { Input = input; Pos = 0; Complete = true; Monoid = m }
-    let kf = fun (a, b, c) -> Free.done_ <| Internal.Fail(skip a.Pos a.Input, b, c)
-    let ks = fun (a, b) -> Free.done_ <| Internal.Done(skip a.Pos a.Input, b)
+    let kf = fun a b c -> Free.done_ <| Internal.Fail(skip a.Pos a.Input, b, c)
+    let ks = fun a b -> Free.done_ <| Internal.Done(skip a.Pos a.Input, b)
     match Free.run F0.functor_ F0.run <| parser.Apply(state, kf, ks) with
     | Fail(_, _, e) -> Choice2Of2 e
     | Done(_, a) -> Choice1Of2 a
@@ -155,7 +155,7 @@ module Parser =
     with
       interface Parser<'T, unit> with
         member this.Apply(st0, _, ks) =
-          ks ({ st0 with Pos = st0.Pos + n }, ())
+          ks { st0 with Pos = st0.Pos + n } ()
 
   let advance n = AdvanceP(n) :> Parser<_, unit>
 
@@ -171,9 +171,9 @@ module Parser =
       interface Parser<'T, unit> with
         member this.Apply(st0, kf, ks) =
           if st0.Complete then
-            Trampoline.suspend <| fun () -> kf (st0, [], "not enough input")
+            Trampoline.suspend <| fun () -> kf st0 [] "not enough input"
           else
-            Free.done_ <| prompt st0 (fun st -> kf (st, [], "not enough input")) (fun a -> ks (a, ()))
+            Free.done_ <| prompt st0 (fun st -> kf st [] "not enough input") (fun a -> ks a ())
 
   let inline private demandInput'<'T when 'T : equality> () = DemandInputP<'T>() :> Parser<'T, unit>
   let demandInput<'T when 'T : equality> = demandInput'<'T> ()
@@ -183,7 +183,7 @@ module Parser =
     override this.ToString() = IParser.infix (">>. " + n.ToString()) p
     with
       interface Parser<'T, 'V> with
-        member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Apply(s, kf, ks))
+        member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun s a -> n.Apply(s, kf, ks))
 
   let (>>.) (p: Parser<_, _>) (n: Parser<_, _>) = RightP<_, _, _>(p, n) :> Parser<_, _>
 
@@ -192,7 +192,7 @@ module Parser =
     override this.ToString() = IParser.infix (".>> " + n.ToString()) m
     with
       interface Parser<'T, 'U> with
-        member this.Apply(st0, kf, ks) = m.Apply(st0, kf, fun (st1, a) -> n.Apply(st1, kf, fun (st2, b) -> ks (st2, a)))
+        member this.Apply(st0, kf, ks) = m.Apply(st0, kf, fun st1 a -> n.Apply(st1, kf, fun st2 b -> ks st2 a))
   
   let (.>>) (m: Parser<_, _>) (n: Parser<_, _>) = LeftP<_, _, _>(m, n) :> Parser<_, _>
 
@@ -202,7 +202,7 @@ module Parser =
     with
       interface Parser<'T, 'T> with
         member this.Apply(st0, kf, ks) =
-          if length st0.Input >= st0.Pos + n then ks (st0, sub st.Pos n st0.Input)
+          if length st0.Input >= st0.Pos + n then ks st0 (sub st.Pos n st0.Input)
           else (demandInput >>. EnsureSuspendedP(length, sub, st0, n)).Apply(st0, kf, ks)
 
   let ensureSuspended length sub st n = EnsureSuspendedP(length, sub, st, n) :> Parser<_, _>
@@ -213,7 +213,7 @@ module Parser =
     with
       interface Parser<'T, 'T> with
         member this.Apply(st0, kf, ks) =
-          if length st0.Input >= st0.Pos + n then ks(st0, sub st0.Pos n st0.Input)
+          if length st0.Input >= st0.Pos + n then ks st0 (sub st0.Pos n st0.Input)
           else (ensureSuspended length sub st0 n).Apply(st0, kf, ks)
 
   let ensure (length: 'T -> int) sub n = EnsureP<_>(length, sub, n) :> Parser<_, _>
@@ -224,9 +224,9 @@ module Parser =
     with
       interface Parser<'T, bool> with
         member this.Apply(st0, kf, ks) =
-          if length st0.Input >= st0.Pos + 1 then ks (st0, true)
-          elif st0.Complete then ks (st0, false)
-          else Free.done_ <| prompt st0 (fun a -> ks (a, false)) (fun a -> ks (a, true))
+          if length st0.Input >= st0.Pos + 1 then ks st0 true
+          elif st0.Complete then ks st0 false
+          else Free.done_ <| prompt st0 (fun a -> ks a false) (fun a -> ks a true)
 
   let wantInput length = WantInputP<_>(length) :> Parser<_, _>
 
@@ -237,7 +237,7 @@ module Parser =
     override this.ToString() = "get"
     with
       interface Parser<'T, 'T> with
-        member this.Apply(st0, _, ks) = ks(st0, skip st0.Pos st0.Input)
+        member this.Apply(st0, _, ks) = ks st0 (skip st0.Pos st0.Input)
 
   let get skip = GetP(skip) :> Parser<_, _>
 
@@ -258,7 +258,7 @@ module Parser =
     with
       interface Parser<'T, bool> with
         member this.Apply(st0, _, ks) =
-          ks (st0, st0.Pos = length st0.Input)
+          ks st0 (st0.Pos = length st0.Input)
 
   let endOfChunk length = EndOfChunkP(length) :> Parser<_, _>
 
@@ -342,11 +342,11 @@ module Parser =
     with
       interface Parser<'T, unit> with
         member this.Apply(st0, kf, ks) =
-          if st0.Pos < length st0.Input then kf (st0, [], "endOfInput")
-          elif st0.Complete then ks (st0, ())
+          if st0.Pos < length st0.Input then kf st0 [] "endOfInput"
+          elif st0.Complete then ks st0 ()
           else
-            let kf = fun (st1, _, _) -> ks (st1, ())
-            let ks = fun (st1, _) -> kf (st1, [], "endOfInput")
+            let kf = fun st1 _ _ -> ks st1 ()
+            let ks = fun st1 _ -> kf st1 [] "endOfInput"
             demandInput.Apply(st0, kf, ks)
 
   let endOfInput length = EndOfInputP<_>(length) :> Parser<_, unit>
@@ -360,7 +360,7 @@ module Parser =
     with
       interface Parser<'T, 'W> with
         member x.Apply(st0, kf, ks) =
-          m.Apply(st0, kf, fun (s, a) -> (n ()).Apply(s, kf, (fun (s, b) -> ks (s, cons.Invoke(a, b)))))
+          m.Apply(st0, kf, fun s a -> (n ()).Apply(s, kf, (fun s b -> ks s (cons.Invoke(a, b)))))
 
   let cons inputCons m n = ConsP(m, (fun () -> n), inputCons) :> Parser<_, _>
 
@@ -370,7 +370,7 @@ module Parser =
     with
       interface Parser<'T, 'U> with
         member this.Apply(st0, kf, ks) =
-          let kf = fun (st1, _, _) -> n.Apply({ st1 with Pos = st0.Pos }, kf, ks)
+          let kf = fun st1 _ _ -> n.Apply({ st1 with Pos = st0.Pos }, kf, ks)
           m.Apply(st0, kf, ks)
 
   let (<|>) m n = OrP<_, _>(m, n) :> Parser<_, _>
@@ -384,7 +384,7 @@ module Parser =
       override this.ToString() = IParser.infix (">>. " + n.ToString()) p
       with
         interface Parser<'T, 'V> with
-          member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun (s, a) -> n.Value.Apply(s, kf, ks))
+          member this.Apply(st0, kf, ks) = p.Apply(st0, kf, fun s a -> n.Value.Apply(s, kf, ks))
 
     let (>>.) p n = RightP<_,_, _>(p, n) :> Parser<_, _>
 
@@ -466,7 +466,7 @@ module Parser =
     with
       interface Parser<'T, 'U> with
         member this.Apply(st0, kf, ks) =
-          let kf (st, strs, msg) = kf(st, msg :: strs, msg)
+          let kf st strs msg = kf st (msg :: strs) msg
           p.Apply(st0, kf, ks)
 
   let (<?>) p message = MessageP<_, _>(p, message) :> Parser<_, _>
@@ -491,7 +491,7 @@ module Parser =
     with
       interface Parser<'T, 'U * 'V> with
         member this.Apply(st0, kf, ks) =
-          let ks (s, a) = p2.Apply(s, kf, (fun (s, b) -> Trampoline.suspend <| fun () -> ks (s, (a, b))))
+          let ks s a = p2.Apply(s, kf, (fun s b -> Trampoline.suspend <| fun () -> ks s (a, b)))
           Trampoline.suspend <| fun () -> p1.Apply(st0, kf, ks)
 
   let tuple2 p1 p2 = Tuple2P(p1, p2)  :> Parser<_, _>
@@ -502,7 +502,7 @@ module Parser =
     override this.ToString() = "match(" + p.ToString() + ")"
     interface Parser<'T, 'T * 'U> with
       member this.Apply(st0, kf, ks) =
-        let ks = fun (s, a) -> ks (s, (sub st0.Pos (s.Pos - st0.Pos) s.Input, a))
+        let ks = fun s a -> ks s (sub st0.Pos (s.Pos - st0.Pos) s.Input, a)
         p.Apply(st0, kf, ks)
 
   let match_ sub p = MatchP(p, sub) :> Parser<_, _>
@@ -512,6 +512,6 @@ module Parser =
     override this.ToString() = "getPosition"
     with
       interface Parser<'T, int> with
-        member this.Apply(st0, _, ks) = ks (st0, st0.Pos)
+        member this.Apply(st0, _, ks) = ks st0 st0.Pos
 
   let getPosition<'T> = PositionP<'T>() :> Parser<_, _>
