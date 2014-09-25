@@ -50,8 +50,7 @@ let jvalue, jvalueRef = createParserForwardedToRef()
 let listBetweenStrings sOpen sClose pElement f =
   between (str sOpen) (str sClose) (ws >>. sepBy (pElement .>> ws) (str "," .>> ws) |>> f)
 
-let keyValue =
-  stringLiteral >>= (fun x -> (ws >>. str ":" >>. ws >>. jvalue) |>> (fun y -> (x, y)))
+let keyValue = tuple2 stringLiteral (ws >>. str ":" >>. ws >>. jvalue)
 
 let jlist = listBetweenStrings "[" "]" jvalue JList
 let jobject = listBetweenStrings "{" "}" keyValue (Map.ofList >> JObject)

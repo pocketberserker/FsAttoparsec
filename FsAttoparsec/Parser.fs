@@ -460,3 +460,14 @@ module Parser =
     let refParser = ref (error "Forwarded ref parser was never initialized")
     let fwdParser = RefP(refParser) :> Parser<_, _>
     (fwdParser, refParser)
+
+  type private Tuple2P<'T, 'U, 'V>(p1: Parser<'T, 'U>, p2: Parser<'T, 'V>) =
+    override this.ToString() = IParser.infix (".>>. " + p2.ToString()) p1
+    with
+      interface Parser<'T, 'U * 'V> with
+        member this.Apply(st0, kf, ks) =
+          let ks (s, a) = p2.Apply(s, kf, (fun (s, b) -> delay <| fun () -> ks (s, (a, b))))
+          delay <| fun () -> p1.Apply(st0, kf, ks)
+
+  let tuple2 p1 p2 = Tuple2P(p1, p2)  :> Parser<_, _>
+  let inline (.>>.) p1 p2 = tuple2 p1 p2
