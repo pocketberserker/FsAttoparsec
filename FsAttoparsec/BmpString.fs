@@ -30,11 +30,11 @@ limitations under the License.
 //     * support Unicode Character
 //     * fix splitAt and empty functions
 //     * remove document comments(TODO: add new document)
+//     * remove DataContract
 
 open System
 open System.Collections
 open System.Collections.Generic
-open System.Diagnostics.Contracts
 
 // BMP: Basic Multilingual Plane
 [<CustomEquality; CustomComparison; SerializableAttribute; StructAttribute>]
@@ -143,15 +143,12 @@ module BmpString =
   let toString (bs:BmpString): string = System.String(bs.Array, bs.Offset, bs.Count)
 
   let isEmpty (bs:BmpString) = 
-    Contract.Requires(bs.Count >= 0)
     bs.Count <= 0
 
   let length (bs:BmpString) = 
-    Contract.Requires(bs.Count >= 0)
     bs.Count
 
   let index (bs:BmpString) pos =
-    Contract.Requires(bs.Offset + pos <= bs.Count)
     bs.Array.[bs.Offset + pos]
 
   let head (bs:BmpString) =
@@ -160,7 +157,6 @@ module BmpString =
     else bs.Array.[bs.Offset]
 
   let tail (bs:BmpString) =
-    Contract.Requires(bs.Count >= 1)
     if bs.Count = 1 then empty
     else BmpString(bs.Array, bs.Offset + 1, bs.Count - 1)
     
@@ -202,7 +198,6 @@ module BmpString =
   let span pred bs = split (not << pred) bs
     
   let splitAt n (bs:BmpString) =
-    Contract.Requires(n >= 0)
     if isEmpty bs then empty, empty
     elif n <= 0 then empty, bs
     elif n >= bs.Count then bs, empty

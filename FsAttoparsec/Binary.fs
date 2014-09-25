@@ -30,11 +30,11 @@ limitations under the License.
 //     * remove ofString and toString
 //     * fix splitAt and empty functions
 //     * remove document comments(TODO: add new document)
+//     * remove System.Diagnostics.Contracts()
 
 open System
 open System.Collections
 open System.Collections.Generic
-open System.Diagnostics.Contracts
 
 [<CustomEquality; CustomComparison; Serializable; Struct>]
 type BinaryArray(array: byte [], offset: int, count: int) =
@@ -137,15 +137,12 @@ module BinaryArray =
   let toList (bs:BinaryArray) = List.ofSeq bs
 
   let isEmpty (bs:BinaryArray) = 
-    Contract.Requires(bs.Count >= 0)
     bs.Count <= 0
 
   let length (bs:BinaryArray) = 
-    Contract.Requires(bs.Count >= 0)
     bs.Count
 
   let index (bs:BinaryArray) pos =
-    Contract.Requires(bs.Offset + pos <= bs.Count)
     bs.Array.[ bs.Offset + pos ]
 
   let head (bs:BinaryArray) =
@@ -154,7 +151,6 @@ module BinaryArray =
     else bs.Array.[ bs.Offset ]
 
   let tail (bs:BinaryArray) =
-    Contract.Requires(bs.Count >= 1)
     if bs.Count = 1 then empty
     else BinaryArray(bs.Array, bs.Offset + 1, bs.Count - 1)
     
@@ -195,7 +191,6 @@ module BinaryArray =
   let span pred bs = split (not << pred) bs
     
   let splitAt n (bs:BinaryArray) =
-    Contract.Requires(n >= 0)
     if isEmpty bs then empty, empty
     elif n <= 0 then empty, bs
     elif n >= bs.Count then bs, empty
