@@ -30,6 +30,7 @@ limitations under the License.
 //     * remove ofString and toString
 //     * fix splitAt and empty functions
 //     * remove document comments(TODO: add new document)
+//     * add range function
 
 open System
 open System.Collections
@@ -214,6 +215,8 @@ module BinaryArray =
   let takeWhile pred bs = span pred bs |> fst
 
   let takeUntil pred bs = split pred bs |> fst 
+
+  let range pos n ba = take n (skip pos ba)
 
   let monoid = { new Monoid<_> with
     override x.Mempty = empty

@@ -15,29 +15,39 @@ module String =
     let input = BmpString.ofString input
     parseOnly monoid parser input
 
-  let ensure n = ensure BmpString.length n
+  let get = get BmpString.skip
 
-  let elem p what = elem BmpString.length BmpString.head BmpString.tail p what
+  let endOfChunk = endOfChunk BmpString.length
 
-  let satisfy p = satisfy BmpString.length BmpString.head BmpString.tail p
+  let wantInput = wantInput BmpString.length
 
-  let skip p what = skip BmpString.length BmpString.head BmpString.tail p what
+  let atEnd = atEnd BmpString.length
+
+  let ensureSuspended st n = ensureSuspended BmpString.length BmpString.substring st n
+
+  let ensure n = ensure BmpString.length BmpString.substring n
+
+  let elem p what = elem BmpString.length BmpString.head BmpString.substring p what
+
+  let satisfy p = satisfy BmpString.length BmpString.head BmpString.substring p
+
+  let skip p what = skip BmpString.length BmpString.head BmpString.substring p what
 
   let skipWhile p = skipWhile monoid BmpString.skipWhile p
 
-  let takeWith n p what = takeWith BmpString.length BmpString.splitAt n p what
+  let takeWith n p what = takeWith BmpString.length BmpString.substring n p what
 
-  let take n = take BmpString.length BmpString.splitAt n
+  let take n = take BmpString.length BmpString.substring n
 
   let anyChar = satisfy (fun _ -> true)
 
   let notChar c = satisfy ((<>) c) |> as_ ("not '" + (string c) + "'")
 
-  let takeWhile (p: _ -> bool) = takeWhile monoid BmpString.span p
+  let takeWhile (p: _ -> bool) = takeWhile monoid BmpString.takeWhile BmpString.length BmpString.skip p
 
-  let takeRest = takeRest monoid
+  let takeRest = takeRest monoid BmpString.length BmpString.skip
 
-  let takeText = takeText monoid List.fold
+  let takeText = takeText monoid BmpString.length BmpString.skip List.fold
 
   let pchar c = elem ((=) c) (Some ("'" + (string c) + "'"))
   
@@ -48,7 +58,7 @@ module String =
     let what = match what with | Some s -> Some s | None -> Some "stringTransform(...)"
     takeWith (BmpString.length s) (fun x -> f x = f s) what
 
-  let takeWhile1 p = takeWhile1 monoid BmpString.span p
+  let takeWhile1 p = takeWhile1 monoid BmpString.takeWhile BmpString.length BmpString.skip p
 
   let private addDigit (a: decimal) c = a * 10M + ((decimal (int64  c)) - 48M)
 
@@ -72,9 +82,13 @@ module String =
         else ok (s * (decimal (Math.Pow(10.0, float x))))) <|> ok sCoeff
   }
 
-  let scan s p = scan monoid BmpString.head BmpString.tail BmpString.take s p
+  let scan s p = scan monoid BmpString.head BmpString.tail BmpString.take BmpString.length BmpString.skip s p
 
   let parse p (Bmp init) = parse monoid p init
+
+  let endOfInput = endOfInput BmpString.length
+
+  let phrase m = phrase BmpString.length m
 
   let parseAll m init = parse (phrase m) init
   

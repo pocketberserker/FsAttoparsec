@@ -2,28 +2,17 @@
 
 open Trampoline
 
+type Pos = int
+
 type State<'T> = {
   Input: 'T
-  Added: 'T
+  Pos: Pos
   Complete: bool
   Monoid: Monoid<'T>
 }
-  with
-    static member (+) (lhs, rhs) = {
-      Input = lhs.Monoid.Mappend(lhs.Input, rhs.Added)
-      Added = lhs.Monoid.Mappend(lhs.Added, rhs.Added)
-      Complete = lhs.Complete || rhs.Complete
-      Monoid = lhs.Monoid
-    } 
-    static member (+) (lhs, rhs) = {
-      lhs with
-        Input = lhs.Monoid.Mappend(lhs.Input, rhs)
-        Added = lhs.Monoid.Mappend(lhs.Added, rhs)
-    } 
 
 module State =
   let completed s = { s with Complete = true }
-  let noAdds s = { s with Added = s.Monoid.Mempty}
 
 module Internal =
 
@@ -95,13 +84,13 @@ type private ReturnP<'T, 'U>(a: 'U) =
     | _ -> "ok(" + a.ToString() + ")"
   with
     interface Parser<'T, 'U> with
-      member x.Apply(st0, kf, ks) = ks (st0, a)
+      member x.Apply(st0, _, ks) = ks (st0, a)
 
 type private ErrorP<'T, 'U>(what: string) =
   override x.ToString() = "error(" + what + ")"
   with
     interface Parser<'T, 'U> with
-      member x.Apply(st0, kf, ks) = kf (st0, [], "Failed reading: " + what)
+      member x.Apply(st0, kf, _) = kf (st0, [], "Failed reading: " + what)
 
 [<AutoOpen>]
 module Parser =
@@ -113,7 +102,7 @@ module Parser =
   let parse (m: Monoid<_>) (p: Parser<_, _>) input =
     let st = {
       Input = input
-      Added = m.Mempty
+      Pos = 0
       Complete = false
       Monoid = m
     }
@@ -148,7 +137,7 @@ module Parser =
   let parser = ParserBuilder()
 
   let parseOnly (m: Monoid<_>) (parser: Parser<_, _>) input =
-    let state = { Input = input; Added = m.Mempty; Complete = true; Monoid = m }
+    let state = { Input = input; Pos = 0; Complete = true; Monoid = m }
     let kf = fun (a, b, c) -> returnT <| Internal.Fail(a.Input, b, c)
     let ks = fun (a, b) -> returnT <| Internal.Done(a.Input, b)
     match Trampoline.run <| parser.Apply(state, kf, ks) with
@@ -156,10 +145,19 @@ module Parser =
     | Done(_, a) -> Choice1Of2 a
     | Partial _ -> Choice2Of2 "parseOnly: Parser returned a partial result"
 
+  type private AdvanceP<'T>(n: int) =
+    override this.ToString() = "advance(" + string n + ")"
+    with
+      interface Parser<'T, unit> with
+        member this.Apply(st0, _, ks) =
+          ks ({ st0 with Pos = st0.Pos + n }, ())
+
+  let advance n = AdvanceP(n) :> Parser<_, unit>
+
   let prompt st kf ks = Partial (fun s ->
     let m = st.Monoid
     if s = m.Mempty then delay <| fun () -> kf { st with Complete = true }
-    else delay <| fun () -> ks { st with Input = m.Mappend(st.Input, s); Added = m.Mappend(st.Added, s) })
+    else delay <| fun () -> ks { st with Input = m.Mappend(st.Input, s); Complete = false })
 
   type private DemandInputP<'T when 'T : equality>() =
     override this.ToString() = "demandInput"
@@ -167,9 +165,9 @@ module Parser =
       interface Parser<'T, unit> with
         member this.Apply(st0, kf, ks) =
           if st0.Complete then
-            delay <| fun () -> kf (st0, ["demandInput"], "not enough bytes")
+            delay <| fun () -> kf (st0, [], "not enough input")
           else
-            returnT <| prompt st0 (fun st -> kf (st, ["demandInput"],"not enough bytes")) (fun a -> ks (a, ()))
+            returnT <| prompt st0 (fun st -> kf (st, [], "not enough input")) (fun a -> ks (a, ()))
 
   let inline private demandInput'<'T when 'T : equality> () = DemandInputP<'T>() :> Parser<'T, unit>
   let demandInput<'T when 'T : equality> = demandInput'<'T> ()
@@ -190,155 +188,156 @@ module Parser =
   
   let (.>>) (m: Parser<_, _>) (n: Parser<_, _>) = LeftP<_, _, _>(m, n) :> Parser<_, _>
 
-  type private EnsureP<'T when 'T : equality>(length: 'T -> int, n: int) =
-    override this.ToString() = "ensure(" + (string n) + ")"
+  type private EnsureSuspendedP<'T when 'T : equality>(length: 'T -> int, sub: int -> int -> 'T -> 'T, st: State<'T>, n: int) =
+    override this.ToString() = "ensureSuspended(" + string n + ")"
     with
-      interface Parser<'T, unit> with
+      interface Parser<'T, 'T> with
         member this.Apply(st0, kf, ks) =
-          if length st0.Input >= n then ks(st0, ())
-          else (demandInput >>. EnsureP<'T>(length, n)).Apply(st0, kf, ks)
+          if length st0.Input >= st0.Pos + n then ks (st0, sub st.Pos n st0.Input)
+          else (demandInput >>. EnsureSuspendedP(length, sub, st0, n)).Apply(st0, kf, ks)
 
-  let ensure (length: 'T -> int) n = EnsureP<_>(length, n) :> Parser<_, unit>
+  let ensureSuspended length sub st n = EnsureSuspendedP(length, sub, st, n) :> Parser<_, _>
 
-  type private WantInputP<'T when 'T : equality>() =
+  type private EnsureP<'T when 'T : equality>(length: 'T -> int, sub: int -> int -> 'T -> 'T, n: int) =
+    override this.ToString() = "ensure(" + string n + ")"
+    with
+      interface Parser<'T, 'T> with
+        member this.Apply(st0, kf, ks) =
+          if length st0.Input >= st0.Pos + n then ks(st0, sub st0.Pos n st0.Input)
+          else (ensureSuspended length sub st0 n).Apply(st0, kf, ks)
+
+  let ensure (length: 'T -> int) sub n = EnsureP<_>(length, sub, n) :> Parser<_, _>
+
+  type private WantInputP<'T when 'T : equality>(length: 'T -> int) =
     override this.ToString() = "wantInput"
     with
       interface Parser<'T, bool> with
         member this.Apply(st0, kf, ks) =
-          if st0.Input <> st0.Monoid.Mempty then ks (st0, true)
+          if length st0.Input >= st0.Pos + 1 then ks (st0, true)
           elif st0.Complete then ks (st0, false)
-          else returnT <| prompt st0 (fun a -> ks(a, false)) (fun a -> ks(a, true))
+          else returnT <| prompt st0 (fun a -> ks (a, false)) (fun a -> ks (a, true))
 
-  let inline private wantInput'<'T when 'T : equality> () = WantInputP<_>() :> Parser<'T, bool>
-  let wantInput<'T when 'T : equality> = wantInput'<'T> ()
+  let wantInput length = WantInputP<_>(length) :> Parser<_, _>
 
-  let atEnd<'T when 'T : equality> = wantInput<'T> |>> not
+  let atEnd length = wantInput length |>> not
 
-  type private GetP<'T>() =
+  type private GetP<'T>(skip: int -> 'T -> 'T) =
     override this.ToString() = "get"
     with
       interface Parser<'T, 'T> with
-        member this.Apply(st0, kf, ks) = ks(st0, st0.Input)
+        member this.Apply(st0, _, ks) = ks(st0, skip st0.Pos st0.Input)
 
-  let inline private get'<'T> () = GetP<'T>() :> Parser<'T, _>
-  let get<'T> = get'<'T> ()
+  let get skip = GetP(skip) :> Parser<_, _>
 
-  type private PutP<'T>(s) =
-    override this.ToString() = "put(" + s.ToString() + ")"
-    with
-      interface Parser<'T, unit> with
-        member this.Apply(st0, kf, ks) = ks({ st0 with Input = s }, ())
+  let inline attempt p = p
 
-  let put s = PutP<_>(s) :> Parser<_, unit>
-
-  type private AttemptP<'T, 'U>(p: Parser<'T, 'U>) =
-    override this.ToString() = "attempt(" + p.ToString() + ")"
-    with
-      interface Parser<'T, 'U> with
-        member this.Apply(st0, kf, ks) =
-          let kf = fun (st1, stack, msg) -> kf (st0 + st1, stack, msg)
-          p.Apply(State.noAdds st0, kf, ks)
-
-  let attempt p = AttemptP<_, _>(p) :> Parser<_, _>
-
-  let elem length head tail p what =
+  let elem length head sub p what =
     let what = match what with | Some s -> s | None -> "elem(...)"
-    ensure length 1
-    >>. get
+    ensure length sub 1
     >>= fun s ->
       let c = head s
-      if p c then put (tail s) >>. ok c
+      if p c then advance 1 >>. ok c
       else error what
     |> asOpaque what
 
-  let satisfy length head tail p = elem length head tail p (Some "satisfy(...)")
+  type private EndOfChunkP<'T>(length: 'T -> int) =
+    override this.ToString() = "endOfChunk"
+    with
+      interface Parser<'T, bool> with
+        member this.Apply(st0, _, ks) =
+          ks (st0, st0.Pos = length st0.Input)
 
-  let skip length head tail p what =
+  let endOfChunk length = EndOfChunkP(length) :> Parser<_, _>
+
+  let satisfy length head sub p = elem length head sub p (Some "satisfy(...)")
+
+  let skip length head sub p what =
     let what = match what with | Some s -> s | None -> "skip(...)"
-    ensure length 1
-    >>. get
+    ensure length sub 1
     >>= fun s ->
-      if p (head s) then put (tail s)
+      if p (head s) then advance 1
       else error what
     |> asOpaque what
 
-  let rec skipWhile (m: Monoid<_>) dropWhile (p: _ -> bool) : Parser<_, unit> = parser {
-    let! t = get |>> (dropWhile p)
-    do! put t
-    let! input =
-      if t = m.Mempty then wantInput else zero
+  let rec skipWhile (m: Monoid<_>) skipWhile' skip length (p: _ -> bool) : Parser<_, unit> = parser {
+    let! t = get skip |>> (skipWhile' p)
+    do! advance (length t)
+    let! eoc = endOfChunk length
+    let! input = if eoc then wantInput length else zero
     return!
-      if input then skipWhile m dropWhile p else zero
+      if input then skipWhile m skipWhile' skip length p
+      else zero
   }
 
-  let takeWith length splitAt n p what =
+  let takeWith length sub n p what =
     let what = match what with | Some s -> s | None -> "takeWith(...)"
-    ensure length n
-    >>. get
+    let n = max n 0
+    ensure length sub n
     >>= fun s ->
-      let (w, h) = splitAt n s
-      if p w then put h >>. ok w
+      if p s then advance n >>. ok s
       else error what
     |> asOpaque what
 
-  let take length splitAt n =
-    takeWith length splitAt n (fun _ -> true) (Some ("take(" + (string n) + ")"))
+  let take length sub n =
+    takeWith length sub n (fun _ -> true) (Some ("take(" + (string n) + ")"))
 
-  let takeWhile (m: Monoid<_>) span (p: _ -> bool) : Parser<_, _> =
+  let takeWhile (m: Monoid<_>) takeWhile length skip (p: _ -> bool) : Parser<_, _> =
     let rec inner acc = parser {
-      let! x = get
-      let (h, t) = span p x
-      do! put t
+      let! x = get skip |>> (takeWhile p)
+      do! advance (length x)
+      let! eoc = endOfChunk length
       return!
-        if m.Mempty = t then
-          wantInput
-          >>= fun input ->
-            if input then inner (m.Mappend(h, acc))
-            else ok (m.Mappend(h, acc))
-        else ok (m.Mappend(h, acc)) }
+        if eoc then
+          wantInput length
+          >>= function
+            | true -> inner (m.Mappend(x, acc))
+            | false -> ok (m.Mappend(x, acc))
+        else ok (m.Mappend(x, acc)) }
     inner m.Mempty
 
-  let takeRest (m: Monoid<_>) =
+  let takeRest (m: Monoid<_>) length skip =
     let rec inner acc = parser {
-      let! input = wantInput
+      let! input = wantInput length
       return!
-        if input then get >>= fun s -> put m.Mempty >>. inner (s :: acc)
+        if input then get skip >>= fun s -> advance (length s) >>. inner (s :: acc)
         else ok (List.rev acc)
     }
     inner []
 
-  let takeText (m: Monoid<_>) fold =
-    takeRest m |>> fold (fun a b -> m.Mappend(a, b)) m.Mempty
+  let takeText (m: Monoid<_>) length skip fold =
+    takeRest m length skip |>> fold (fun a b -> m.Mappend(a, b)) m.Mempty
 
   let private when' (m: Parser<_, unit>) b = if b then m else ok ()
 
-  let takeWhile1 (m: Monoid<_>) span p = parser {
-    do! get |>> ((=) m.Mempty) >>= when' demandInput
-    let! s = get
-    let (h, t) = span p s
-    do! when' (error "takeWhile1") (m.Mempty = h) 
-    do! put t
+  let takeWhile1 (m: Monoid<_>) takeWhile' length skip p = parser {
+    do! endOfChunk length >>= when' demandInput
+    let! s = get skip |>> (takeWhile' p)
+    let len = length s
     return!
-      if t = m.Mempty then takeWhile m span p |>> fun x -> m.Mappend(h, x) else ok h
+      if len = 0 then error "takeWhile1"
+      else
+        advance len
+        >>. endOfChunk length
+        >>= fun eoc ->
+          if eoc then takeWhile m takeWhile' length skip p |>> (fun x -> m.Mappend(s, x))
+          else ok s
   }
 
-  type private EndOfInputP<'T when 'T : equality>() =
+  type private EndOfInputP<'T when 'T : equality>(length: 'T -> int) =
     override this.ToString() = "endOfInput"
     with
       interface Parser<'T, unit> with
         member this.Apply(st0, kf, ks) =
-          if st0.Input = st0.Monoid.Mempty then
-            if st0.Complete then ks (st0, ())
-            else
-              let kf = fun (st1, stack, msg) -> ks (st0 + st1, ())
-              let ks = fun (st1, u) -> kf (st0 + st1, [], "endOfInput")
-              demandInput.Apply(st0, kf, ks)
-          else kf (st0, [], "endOfInput")
+          if st0.Pos < length st0.Input then kf (st0, [], "endOfInput")
+          elif st0.Complete then ks (st0, ())
+          else
+            let kf = fun (st1, _, _) -> ks (st1, ())
+            let ks = fun (st1, _) -> kf (st1, [], "endOfInput")
+            demandInput.Apply(st0, kf, ks)
 
-  let inline private endOfInput'<'T when 'T : equality> () = EndOfInputP<_>() :> Parser<'T, unit>
-  let endOfInput<'T when 'T : equality> = endOfInput'<'T> ()
+  let endOfInput length = EndOfInputP<_>(length) :> Parser<_, unit>
   
-  let phrase p = p .>> endOfInput |> as_ ("phrase" + p.ToString())
+  let phrase length p = p .>> endOfInput length |> as_ ("phrase" + p.ToString())
  
   type private ConsP<'T, 'U, 'V, 'W>(m: Parser<'T, 'U>, n: unit -> Parser<'T, 'V>, cons: 'U -> 'V -> 'W) =
     override x.ToString() =  "(" + m.ToString() + ") :: (" + (n ()).ToString() + ")"
@@ -354,8 +353,8 @@ module Parser =
     with
       interface Parser<'T, 'U> with
         member this.Apply(st0, kf, ks) =
-          let kf = fun (st1, stack, msg) -> n.Apply(st0 + st1, kf, ks)
-          m.Apply(State.noAdds st0, kf, ks)
+          let kf = fun (st1, _, _) -> n.Apply({ st1 with Pos = st0.Pos }, kf, ks)
+          m.Apply(st0, kf, ks)
 
   let (<|>) m n = OrP<_, _>(m, n) :> Parser<_, _>
 
@@ -381,7 +380,7 @@ module Parser =
     | Continue of 'T
     | Finished of int * 'U
 
-  let scan (m: Monoid<_>) head tail take s (p: _ -> _ -> Option<_>) =
+  let scan (m: Monoid<_>) head tail take length skip s (p: _ -> _ -> Option<_>) =
     let rec scanner s n t =
       if t = m.Mempty then Continue s
       else
@@ -389,15 +388,20 @@ module Parser =
         | Some s -> scanner s (n + 1) (tail t)
         | None -> Finished(n, t)
     let rec inner acc s = parser {
-      let! input = get
+      let! input = get skip
       return!
         match scanner s 0 input with
         | Continue sp ->
-          put m.Mempty >>. wantInput
-          >>= fun more -> if more then inner (input :: acc) sp else ok (input :: acc)
+          advance (length input)
+          >>. endOfChunk length
+          >>= function
+            | true ->
+              wantInput length >>= fun more ->
+                if more then inner (input :: acc) sp else ok (input :: acc)
+            | false -> zero
         | Finished(n, t) ->
           let i = input |> take n
-          put t >>= fun () -> ok (i :: acc)
+          advance (length input - length t) >>. ok (i :: acc)
     }
     parser {
       let! chunks = inner [] s

@@ -12,41 +12,55 @@ module Binary =
   let parseOnly parser (Bin input) =
     parseOnly BinaryArray.monoid parser input
 
-  let ensure n = ensure BinaryArray.length n
+  let get = get BinaryArray.skip
 
-  let elem p what = elem BinaryArray.length BinaryArray.head BinaryArray.tail p what
+  let endOfChunk = endOfChunk BinaryArray.length
 
-  let satisfy p = satisfy BinaryArray.length BinaryArray.head BinaryArray.tail p
+  let wantInput = wantInput BinaryArray.length
 
-  let skip p what = skip BinaryArray.length BinaryArray.head BinaryArray.tail p what
+  let atEnd = atEnd BinaryArray.length
 
-  let skipWhile p = skipWhile BinaryArray.monoid BinaryArray.skipWhile p
+  let ensureSuspended st n = ensureSuspended BinaryArray.length BinaryArray.range st n
 
-  let takeWith n p what = takeWith BinaryArray.length BinaryArray.splitAt n p what
+  let ensure n = ensure BinaryArray.length BinaryArray.range n
 
-  let take n = take BinaryArray.length BinaryArray.splitAt n
+  let elem p what = elem BinaryArray.length BinaryArray.head BinaryArray.range p what
+
+  let satisfy p = satisfy BinaryArray.length BinaryArray.head BinaryArray.range p
+
+  let skip p what = skip BinaryArray.length BinaryArray.head BinaryArray.range p what
+
+  let skipWhile p = skipWhile BinaryArray.monoid BinaryArray.skipWhile BinaryArray.skip BinaryArray.length p
+
+  let takeWith n p what = takeWith BinaryArray.length BinaryArray.range n p what
+
+  let take n = take BinaryArray.length BinaryArray.range n
 
   let anyByte = satisfy (fun _ -> true)
 
   let notByte c = (satisfy ((<>) c)) |> as_ ("not '" + (string c) + "'")
 
   let takeWhile (p: _ -> bool) =
-    takeWhile BinaryArray.monoid BinaryArray.span p
+    takeWhile BinaryArray.monoid BinaryArray.takeWhile BinaryArray.length BinaryArray.skip p
 
-  let takeRest = takeRest BinaryArray.monoid
+  let takeRest = takeRest BinaryArray.monoid BinaryArray.length BinaryArray.skip
 
-  let takeText = takeText BinaryArray.monoid List.fold
+  let takeText = takeText BinaryArray.monoid BinaryArray.length BinaryArray.skip List.fold
 
   let pbyte c = elem ((=) c) (Some ("'" + (string c) + "'"))
   let bytes (Bin b) =
     takeWith (BinaryArray.length b) ((=) b) (Some (b.ToString()))
 
   let takeWhile1 p =
-    takeWhile1 BinaryArray.monoid BinaryArray.span p
+    takeWhile1 BinaryArray.monoid BinaryArray.takeWhile BinaryArray.length BinaryArray.skip p
 
-  let scan s p = scan BinaryArray.monoid BinaryArray.head BinaryArray.tail BinaryArray.take s p
+  let scan s p = scan BinaryArray.monoid BinaryArray.head BinaryArray.tail BinaryArray.take BinaryArray.length BinaryArray.skip s p
   
   let parse p (Bin init) = parse BinaryArray.monoid p init
+
+  let endOfInput = endOfInput BinaryArray.length
+
+  let phrase m = phrase BinaryArray.length m
 
   let parseAll m init = parse (phrase m) init
 

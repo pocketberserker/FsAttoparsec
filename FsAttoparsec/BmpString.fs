@@ -30,6 +30,7 @@ limitations under the License.
 //     * support Unicode Character
 //     * fix splitAt and empty functions
 //     * remove document comments(TODO: add new document)
+//     * add substring function
 
 open System
 open System.Collections
@@ -221,6 +222,8 @@ module BmpString =
   let takeWhile pred bs = span pred bs |> fst
 
   let takeUntil pred bs = split pred bs |> fst 
+
+  let substring pos n bs = take n (skip pos bs)
 
   let monoid = { new Monoid<_> with
     override x.Mempty = empty

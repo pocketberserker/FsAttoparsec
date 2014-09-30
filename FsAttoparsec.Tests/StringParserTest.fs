@@ -64,21 +64,20 @@ module StringParserTest =
         let! tp = takeText
         return (hp, tp)
       })
-      |> ((=) (Choice1Of2 (h, t)))
+      |> (=) (Choice1Of2 (h, t))
 
   [<Test>]
   let ``takeWhile1`` () =
     check <| fun w s ->
       let sp = BmpString.cons w (BmpString.ofString s)
       let (h, t) = BmpString.span (fun x -> x <= w) sp
-      let ho = sp |> BmpString.toString
       sp
       |> BmpString.toString
       |> parseOnly (parser {
         let! hp = takeWhile1 (fun x -> x <= w)
         let! tp = takeText
         return (hp, tp) })
-      |> fun x -> x = (Choice1Of2 (h, t))
+      |> (=) (Choice1Of2 (h, t))
 
   [<Test>]
   let ``takeWhile1 empty`` () =
