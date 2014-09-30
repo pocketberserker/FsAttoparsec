@@ -75,3 +75,5 @@ module Binary =
 
   let sepBy1 p s = sepBy1 List.monoid List.cons p s
   let sepBy p s = sepBy List.monoid List.cons p s
+
+  let match_ p = match_ BinaryArray.range p

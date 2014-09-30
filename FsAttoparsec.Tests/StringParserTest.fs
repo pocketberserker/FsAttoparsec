@@ -23,7 +23,7 @@ module StringParserTest =
       actual = Some w
 
   [<Test>]
-  let ``char`` () =
+  let ``char `` () =
     check <| fun w s ->
       let actual =
         cons w s
@@ -44,7 +44,7 @@ module StringParserTest =
         lazy (let v = s.Chars(0) in (parse (notChar w) s).Option = (if v = w then None else Some v))
 
   [<Test>]
-  let ``string`` () =
+  let ``string `` () =
     check <| fun s t ->
       (parse (pstring s) (s + t)).Option
       |> Option.map BmpString.toString = Some s
@@ -90,3 +90,12 @@ module StringParserTest =
   let ``endOfInput`` () =
     check <| fun s ->
       s |> parseOnly endOfInput = (if String.IsNullOrEmpty s then Choice1Of2 () else Choice2Of2 "endOfInput")
+
+  [<Test>]
+  let ``match_`` () =
+    check <| fun (s: int) ->
+      let input =  string s
+      let expected = (input, s)
+      input
+      |> parseOnly (match_ signedInt |>> (fun (x, y) -> (BmpString.toString x, int y)))
+      |> (=) (Choice1Of2 expected)

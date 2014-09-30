@@ -118,3 +118,5 @@ module String =
 
   let newline = manySatisfy (fun i -> inClass "\r\n" i || inClass "\r" i || inClass "\n" i);
   let spaces = manySatisfy (fun i -> inClass "\r\n" i || inClass "\r" i || inClass "\n" i || Char.IsWhiteSpace i)
+
+  let match_ p = match_ BmpString.substring p

@@ -475,3 +475,12 @@ module Parser =
 
   let tuple2 p1 p2 = Tuple2P(p1, p2)  :> Parser<_, _>
   let inline (.>>.) p1 p2 = tuple2 p1 p2
+
+  type private MatchP<'T, 'U>(p: Parser<'T, 'U>, sub: int -> int -> 'T -> 'T) =
+    override this.ToString() = "match(" + p.ToString() + ")"
+    interface Parser<'T, 'T * 'U> with
+      member this.Apply(st0, kf, ks) =
+        let ks = fun (s, a) -> ks (s, (sub st0.Pos (s.Pos - st0.Pos) s.Input, a))
+        p.Apply(st0, kf, ks)
+
+  let match_ sub p = MatchP(p, sub) :> Parser<_, _>
