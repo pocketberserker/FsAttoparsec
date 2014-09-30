@@ -484,3 +484,11 @@ module Parser =
         p.Apply(st0, kf, ks)
 
   let match_ sub p = MatchP(p, sub) :> Parser<_, _>
+
+  type private PositionP<'T>() =
+    override this.ToString() = "getPosition"
+    with
+      interface Parser<'T, int> with
+        member this.Apply(st0, _, ks) = ks (st0, st0.Pos)
+
+  let getPosition<'T> = PositionP<'T>() :> Parser<_, _>
