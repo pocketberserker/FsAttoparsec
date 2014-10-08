@@ -99,15 +99,15 @@ module Parser =
 
   let infix s p = IParser.infix s p
 
-  let parse (m: Monoid<_>) (p: Parser<_, _>) input =
+  let parse skip (m: Monoid<_>) (p: Parser<_, _>) input =
     let st = {
       Input = input
       Pos = 0
       Complete = false
       Monoid = m
     }
-    let kf = fun (a, b, c) -> returnT <| Internal.Fail(a.Input, b, c)
-    let ks = fun (a, b) -> returnT <| Internal.Done(a.Input, b)
+    let kf = fun (a, b, c) -> returnT <| Internal.Fail(skip a.Pos a.Input, b, c)
+    let ks = fun (a, b) -> returnT <| Internal.Done(skip a.Pos a.Input, b)
     p.Apply(st, kf, ks)
     |> Trampoline.run
     |> Internal.Result.translate
@@ -136,10 +136,10 @@ module Parser =
 
   let parser = ParserBuilder()
 
-  let parseOnly (m: Monoid<_>) (parser: Parser<_, _>) input =
+  let parseOnly skip (m: Monoid<_>) (parser: Parser<_, _>) input =
     let state = { Input = input; Pos = 0; Complete = true; Monoid = m }
-    let kf = fun (a, b, c) -> returnT <| Internal.Fail(a.Input, b, c)
-    let ks = fun (a, b) -> returnT <| Internal.Done(a.Input, b)
+    let kf = fun (a, b, c) -> returnT <| Internal.Fail(skip a.Pos a.Input, b, c)
+    let ks = fun (a, b) -> returnT <| Internal.Done(skip a.Pos a.Input, b)
     match Trampoline.run <| parser.Apply(state, kf, ks) with
     | Fail(_, _, e) -> Choice2Of2 e
     | Done(_, a) -> Choice1Of2 a

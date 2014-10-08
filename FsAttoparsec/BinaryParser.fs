@@ -10,7 +10,7 @@ module Binary =
     let done_ (result: ParseResult<_, _>) = ParseResult.done_ BinaryArray.monoid result
 
   let parseOnly parser (Bin input) =
-    parseOnly BinaryArray.monoid parser input
+    parseOnly BinaryArray.skip BinaryArray.monoid parser input
 
   let get = get BinaryArray.skip
 
@@ -56,7 +56,7 @@ module Binary =
 
   let scan s p = scan BinaryArray.monoid BinaryArray.head BinaryArray.tail BinaryArray.take BinaryArray.length BinaryArray.skip s p
   
-  let parse p (Bin init) = parse BinaryArray.monoid p init
+  let parse p (Bin init) = parse BinaryArray.skip BinaryArray.monoid p init
 
   let endOfInput = endOfInput BinaryArray.length
 

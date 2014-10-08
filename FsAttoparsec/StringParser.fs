@@ -13,7 +13,7 @@ module String =
 
   let parseOnly parser input =
     let input = BmpString.ofString input
-    parseOnly monoid parser input
+    parseOnly BmpString.skip monoid parser input
 
   let get = get BmpString.skip
 
@@ -84,7 +84,7 @@ module String =
 
   let scan s p = scan monoid BmpString.head BmpString.tail BmpString.take BmpString.length BmpString.skip s p
 
-  let parse p (Bmp init) = parse monoid p init
+  let parse p (Bmp init) = parse BmpString.skip monoid p init
 
   let endOfInput = endOfInput BmpString.length
 

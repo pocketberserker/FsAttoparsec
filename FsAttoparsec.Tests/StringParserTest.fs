@@ -6,6 +6,7 @@ open FsCheck
 open FsCheck.NUnit
 open System
 open Attoparsec
+open Attoparsec.Parser
 open Attoparsec.String
 
 [<TestFixture>]
@@ -99,3 +100,17 @@ module StringParserTest =
       input
       |> parseOnly (match_ signedInt |>> (fun (x, y) -> (BmpString.toString x, int y)))
       |> (=) (Choice1Of2 expected)
+
+  let signum =
+    (pchar '+' |>> fun _ -> 1)
+    <|> (pchar '-' |>> fun _ -> -1)
+    <|> ok 1
+
+  [<Test>]
+  let ``signum `` () =
+    check <| fun (s: string) ->
+      let bs = BmpString.ofString s
+      ((s.StartsWith("-") || s.StartsWith("+")) |> not) ==>
+        (match parse signum ("+" + s) with ParseResult.Done(s, 1) when bs = s -> true | _ -> false
+        && match parse signum ("-" + s) with ParseResult.Done(s, -1) when bs = s -> true | _ -> false
+        && match parse signum s |> ParseResult.feed "" with ParseResult.Done(s, 1) when bs = s -> true | _ -> false)
