@@ -14,7 +14,7 @@ let watch parserName parse format input =
 
 let benchmark input =
   watch "FParsec" FParsec.Json.parseJsonString FParsec.Json.formatResult input
-  //watch "ParsecClone" ParsecClone.Json.parseJsonString ParsecClone.Json.formatResult input
+  watch "ParsecClone" ParsecClone.Json.parseJsonString ParsecClone.Json.formatResult input
   watch "FsAttoparsec" Attoparsec.Json.parseJsonString Attoparsec.Json.formatResult input
 
 let read (filePath: string) =

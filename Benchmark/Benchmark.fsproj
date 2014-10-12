@@ -27,6 +27,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\Benchmark.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
+    <StartArguments>c:\temp\sample.json</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -53,11 +54,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="ParsecClone.Combinator">
-      <HintPath>..\packages\ParsecClone.1.1.0\lib\net45\ParsecClone.Combinator.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="ParsecClone.CombinatorCS">
-      <HintPath>..\packages\ParsecClone.1.1.0\lib\net45\ParsecClone.CombinatorCS.dll</HintPath>
+      <HintPath>..\packages\ParsecClone.2.0.1\lib\net45\ParsecClone.Combinator.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
