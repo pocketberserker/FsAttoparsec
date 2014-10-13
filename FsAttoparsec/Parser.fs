@@ -483,7 +483,7 @@ module Parser =
         let ks = fun (s, a) -> ks (s, (sub st0.Pos (s.Pos - st0.Pos) s.Input, a))
         p.Apply(st0, kf, ks)
 
-  let match_ sub p = MatchP(p, sub) :> Parser<_, _>
+  let pmatch sub p = MatchP(p, sub) :> Parser<_, _>
 
   type private PositionP<'T>() =
     override this.ToString() = "getPosition"

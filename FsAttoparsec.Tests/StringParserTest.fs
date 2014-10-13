@@ -98,7 +98,7 @@ module StringParserTest =
       let input =  string s
       let expected = (input, s)
       input
-      |> parseOnly (match_ signedInt |>> (fun (x, y) -> (BmpString.toString x, int y)))
+      |> parseOnly (pmatch signedInt |>> (fun (x, y) -> (BmpString.toString x, int y)))
       |> (=) (Choice1Of2 expected)
 
   let signum =
