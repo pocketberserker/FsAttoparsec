@@ -17,3 +17,5 @@ let config = { Config.Default with Runner = runner }
 
 let check testable =
   Check.One ("", config, testable)
+
+let (|NonNullString|) (str: NonNull<string>) = str.Get

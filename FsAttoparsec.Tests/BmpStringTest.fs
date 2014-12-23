@@ -11,24 +11,24 @@ module BmpStringTest =
 
   [<Test>]
   let ``append test`` () =
-    check <| fun s t ->
+    check <| fun (NonNullString s) (NonNullString t) ->
       BmpString.toString (BmpString.append (BmpString.ofString s) (BmpString.ofString t)) = s + t 
 
   [<Test>]
   let ``fold test`` () =
-    check <| fun s ->
+    check <| fun (NonNullString s) ->
       let actual = BmpString.ofString s |> BmpString.fold (fun acc c -> acc + (string c)) ""
       actual |> should equal s
 
   [<Test>]
   let ``head test`` () =
-    check <| fun (s: string) ->
+    check <| fun (NonNullString s) ->
       ((not <| System.String.IsNullOrEmpty s) ==>
         lazy (BmpString.head (BmpString.ofString s) |> char = s.Chars(0)))
 
   [<Test>]
   let ``cons test`` () =
-    check <| fun (s: string) ->
+    check <| fun (NonNullString s) ->
       let s = BmpString.ofString s
       ((not <| BmpString.isEmpty s) ==>
         lazy ((BmpString.cons (BmpString.head s) (BmpString.tail s)) = s))
@@ -52,7 +52,7 @@ module BmpStringTest =
 
   [<Test>]
   let ``span test`` () =
-    check <| fun (s: string) ->
+    check <| fun (NonNullString s) ->
       let text = BmpString.ofString s
       let f = char >> System.Char.IsNumber
       let actual =
@@ -73,15 +73,15 @@ module BmpStringTest =
 
   [<Test>]
   let ``monoid first law``() =
-    check <| fun (Bmp x) ->
+    check <| fun (NonNullString (Bmp x)) ->
       mappend mempty x = x
 
   [<Test>]
   let ``monoid second law``() =
-    check <| fun (Bmp x) ->
+    check <| fun (NonNullString (Bmp x)) ->
       mappend x mempty = x
 
   [<Test>]
   let ``monoid third law``() =
-    check <| fun (Bmp x) (Bmp y) (Bmp z) ->
+    check <| fun (NonNullString (Bmp x)) (NonNullString (Bmp y)) (NonNullString (Bmp z)) ->
       mappend x (mappend y z) = mappend (mappend x y) z

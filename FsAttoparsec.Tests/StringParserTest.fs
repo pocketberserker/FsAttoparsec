@@ -34,7 +34,7 @@ module StringParserTest =
 
   [<Test>]
   let ``anyChar`` () =
-    check <| fun s ->
+    check <| fun (NonNullString s) ->
       let p = (parse anyChar s).Option
       match List.ofSeq s with | [] -> p = None | x::_ -> p = Some x
 
@@ -46,18 +46,18 @@ module StringParserTest =
 
   [<Test>]
   let ``string `` () =
-    check <| fun s t ->
+    check <| fun (NonNullString s) (NonNullString t) ->
       (parse (pstring s) (s + t)).Option
       |> Option.map BmpString.toString = Some s
 
   [<Test>]
   let ``takeCount`` () =
-    check <| fun k s ->
+    check <| fun k (NonNullString s) ->
       (k >= 0) ==> lazy (match (parse (take k) s).Option with | None -> k > String.length s | Some _ -> k <= String.length s)
 
   [<Test>]
   let ``takeWhile`` () =
-    check <| fun w s ->
+    check <| fun w (NonNullString s) ->
       let (h, t) = BmpString.span ((=) w) (BmpString.ofString s)
       s
       |> parseOnly (parser {
@@ -69,7 +69,7 @@ module StringParserTest =
 
   [<Test>]
   let ``takeWhile1`` () =
-    check <| fun w s ->
+    check <| fun w (NonNullString s) ->
       let sp = BmpString.cons w (BmpString.ofString s)
       let (h, t) = BmpString.span (fun x -> x <= w) sp
       sp
@@ -89,7 +89,7 @@ module StringParserTest =
 
   [<Test>]
   let ``endOfInput`` () =
-    check <| fun s ->
+    check <| fun (NonNullString s) ->
       s |> parseOnly endOfInput = (if String.IsNullOrEmpty s then Choice1Of2 () else Choice2Of2 "endOfInput")
 
   [<Test>]
@@ -108,7 +108,7 @@ module StringParserTest =
 
   [<Test>]
   let ``signum `` () =
-    check <| fun (s: string) ->
+    check <| fun (NonNullString s) ->
       let bs = BmpString.ofString s
       ((s.StartsWith("-") || s.StartsWith("+")) |> not) ==>
         (match parse signum ("+" + s) with ParseResult.Done(s, 1) when bs = s -> true | _ -> false
