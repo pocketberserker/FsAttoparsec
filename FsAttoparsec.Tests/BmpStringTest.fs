@@ -4,34 +4,31 @@ open NUnit.Framework
 open FsUnit
 open FsCheck
 open FsCheck.NUnit
+open TestHelper
 open Attoparsec
 
 [<TestFixture>]
 module BmpStringTest =
 
-  [<Test>]
-  let ``append test`` () =
-    check <| fun (NonNullString s) (NonNullString t) ->
-      BmpString.toString (BmpString.append (BmpString.ofString s) (BmpString.ofString t)) = s + t 
+  [<Property>]
+  let ``append test`` (NonNullString s) (NonNullString t) =
+    BmpString.toString (BmpString.append (BmpString.ofString s) (BmpString.ofString t)) = s + t 
 
-  [<Test>]
-  let ``fold test`` () =
-    check <| fun (NonNullString s) ->
-      let actual = BmpString.ofString s |> BmpString.fold (fun acc c -> acc + (string c)) ""
-      actual |> should equal s
+  [<Property>]
+  let ``fold test`` (NonNullString s) =
+    let actual = BmpString.ofString s |> BmpString.fold (fun acc c -> acc + (string c)) ""
+    actual |> should equal s
 
-  [<Test>]
-  let ``head test`` () =
-    check <| fun (NonNullString s) ->
-      ((not <| System.String.IsNullOrEmpty s) ==>
-        lazy (BmpString.head (BmpString.ofString s) |> char = s.Chars(0)))
+  [<Property>]
+  let ``head test`` (NonNullString s) =
+    ((not <| System.String.IsNullOrEmpty s) ==>
+      lazy (BmpString.head (BmpString.ofString s) |> char = s.Chars(0)))
 
-  [<Test>]
-  let ``cons test`` () =
-    check <| fun (NonNullString s) ->
-      let s = BmpString.ofString s
-      ((not <| BmpString.isEmpty s) ==>
-        lazy ((BmpString.cons (BmpString.head s) (BmpString.tail s)) = s))
+  [<Property>]
+  let ``cons test`` (NonNullString s) =
+    let s = BmpString.ofString s
+    ((not <| BmpString.isEmpty s) ==>
+      lazy ((BmpString.cons (BmpString.head s) (BmpString.tail s)) = s))
 
   [<TestCase("", 0, "", "")>]
   [<TestCase("hoge", -10, "", "hoge")>]
@@ -50,20 +47,19 @@ module BmpStringTest =
     let act = str |> BmpString.splitAt pos
     act |> should equal (expectedFront, expectedBack)
 
-  [<Test>]
-  let ``span test`` () =
-    check <| fun (NonNullString s) ->
-      let text = BmpString.ofString s
-      let f = char >> System.Char.IsNumber
-      let actual =
-        text
-        |> BmpString.span f
-        |> (fun (x, y) -> BmpString.toString x, BmpString.toString y)
-      let f = System.Char.IsNumber
-      let expected =
-        (System.String(Seq.takeWhile f s |> Seq.toArray),
-          System.String(Seq.skipWhile f s |> Seq.toArray))
-      actual |> should equal expected
+  [<Property>]
+  let ``span test`` (NonNullString s) =
+    let text = BmpString.ofString s
+    let f = char >> System.Char.IsNumber
+    let actual =
+      text
+      |> BmpString.span f
+      |> (fun (x, y) -> BmpString.toString x, BmpString.toString y)
+    let f = System.Char.IsNumber
+    let expected =
+      (System.String(Seq.takeWhile f s |> Seq.toArray),
+        System.String(Seq.skipWhile f s |> Seq.toArray))
+    actual |> should equal expected
 
   open Helper
   
@@ -71,17 +67,14 @@ module BmpStringTest =
   let mempty = monoid.Mempty
   let mappend x y = monoid.Mappend(x, y)
 
-  [<Test>]
-  let ``monoid first law``() =
-    check <| fun (NonNullString (Bmp x)) ->
-      mappend mempty x = x
+  [<Property>]
+  let ``monoid first law`` (NonNullString (Bmp x)) =
+    mappend mempty x = x
 
-  [<Test>]
-  let ``monoid second law``() =
-    check <| fun (NonNullString (Bmp x)) ->
-      mappend x mempty = x
+  [<Property>]
+  let ``monoid second law`` (NonNullString (Bmp x)) =
+    mappend x mempty = x
 
-  [<Test>]
-  let ``monoid third law``() =
-    check <| fun (NonNullString (Bmp x)) (NonNullString (Bmp y)) (NonNullString (Bmp z)) ->
-      mappend x (mappend y z) = mappend (mappend x y) z
+  [<Property>]
+  let ``monoid third law`` (NonNullString (Bmp x)) (NonNullString (Bmp y)) (NonNullString (Bmp z)) =
+    mappend x (mappend y z) = mappend (mappend x y) z

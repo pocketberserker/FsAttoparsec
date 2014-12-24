@@ -1,21 +1,18 @@
-﻿module FsCheck.NUnit
+﻿namespace FsCheck.NUnit
 
 open FsCheck
-open NUnit.Framework
+open NUnit.Core.Extensibility
 
-let runner =
-  { new IRunner with
-      member x.OnStartFixture t = ()
-      member x.OnArguments(ntets: int, args: obj list, every: int -> obj list -> string) = ()
-      member x.OnShrink(args, everyShrink) = ()
-      member x.OnFinished(name, result) =
-        match result with
-        | TestResult.True _ -> ()
-        | _ -> Assert.Fail(Runner.onFinishedToString name result) }
+open FsCheck.NUnit.Addin
 
-let config = { Config.Default with Runner = runner }
+[<NUnitAddin(Description = "FsCheck addin")>]
+type FsCheckAddin() =
+  interface IAddin with
+    override x.Install host =
+      let tcBuilder = new FsCheckTestCaseBuider()
+      host.GetExtensionPoint("TestCaseBuilders").Install(tcBuilder)
+      true
 
-let check testable =
-  Check.One ("", config, testable)
+module TestHelper =
 
-let (|NonNullString|) (str: NonNull<string>) = str.Get
+  let (|NonNullString|) (str: NonNull<string>) = str.Get
