@@ -17,7 +17,7 @@ module BmpStringTest =
   [<Property>]
   let ``fold test`` (NonNullString s) =
     let actual = BmpString.ofString s |> BmpString.fold (fun acc c -> acc + (string c)) ""
-    actual |> should equal s
+    actual = s
 
   [<Property>]
   let ``head test`` (NonNullString s) =
@@ -59,7 +59,7 @@ module BmpStringTest =
     let expected =
       (System.String(Seq.takeWhile f s |> Seq.toArray),
         System.String(Seq.skipWhile f s |> Seq.toArray))
-    actual |> should equal expected
+    actual = expected
 
   open Helper
   
