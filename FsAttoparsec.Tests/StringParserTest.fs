@@ -51,7 +51,7 @@ module StringParserTest =
     (k >= 0) ==> lazy (match (parse (take k) s).Option with | None -> k > String.length s | Some _ -> k <= String.length s)
 
   [<Property>]
-  let ``takeWhile`` w (NonNullString s) =
+  let ``takeWhile `` w (NonNullString s) =
     let (h, t) = BmpString.span ((=) w) (BmpString.ofString s)
     s
     |> parseOnly (parser {
