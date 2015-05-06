@@ -1,20 +1,20 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30110.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAttoparsec", "FsAttoparsec\FsAttoparsec.fsproj", "{ED45DD94-0836-4F4E-8F23-7C7A348E496B}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAttoparsec.Tests", "FsAttoparsec.Tests\FsAttoparsec.Tests.fsproj", "{1CDB4592-DEF6-45D8-A2C2-389ACEAD4E14}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{73B55771-BFD4-4856-8C4D-1B672868EDE6}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Benchmark", "Benchmark\Benchmark.fsproj", "{6EC0B816-8F9B-47DA-A8F1-7BED3C1ACE21}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{33F82EB0-987B-4262-BFF2-A492A92EC177}"
 	ProjectSection(SolutionItems) = preProject
 		.nuget\NuGet.Config = .nuget\NuGet.Config
 		.nuget\NuGet.exe = .nuget\NuGet.exe
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Benchmark", "Benchmark\Benchmark.fsproj", "{6EC0B816-8F9B-47DA-A8F1-7BED3C1ACE21}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
