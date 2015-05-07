@@ -13,6 +13,6 @@ install:
   - nuget install NUnit.Runners -Version 2.6.4 -OutputDirectory packages -ExcludeVersion
 
 script:
-  - xbuild ./FaAttoparsec.sln /p:Configuration=${CONFIGURATION}
+  - xbuild ./FsAttoparsec.sln /p:Configuration=${CONFIGURATION}
   - mono ./packages/NUnit.Runners/tools/nunit-console.exe ./FsAttoparsec.Tests/bin/${CONFIGURATION}/FsAttoparsec.Tests.dll
 
