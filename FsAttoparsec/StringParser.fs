@@ -50,7 +50,7 @@ module String =
   let takeText = takeText monoid BmpString.length BmpString.skip List.fold
 
   let pchar c = elem ((=) c) (Some ("'" + (string c) + "'"))
-  
+
   let pstring (Bmp s) =
     takeWith (BmpString.length s) ((=) s) (Some ("\"" + (BmpString.toString s) + "\""))
 
@@ -91,7 +91,7 @@ module String =
   let phrase m = phrase BmpString.length m
 
   let parseAll m init = parse (phrase m) init
-  
+
   let oneOf chars = satisfy (Helper.inClass chars)
   let noneOf chars = satisfy (Helper.inClass chars >> not)
 

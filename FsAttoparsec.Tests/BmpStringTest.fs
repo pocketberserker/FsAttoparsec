@@ -12,7 +12,7 @@ module BmpStringTest =
 
   [<Property>]
   let ``append test`` (NonNullString s) (NonNullString t) =
-    BmpString.toString (BmpString.append (BmpString.ofString s) (BmpString.ofString t)) = s + t 
+    BmpString.toString (BmpString.append (BmpString.ofString s) (BmpString.ofString t)) = s + t
 
   [<Property>]
   let ``fold test`` (NonNullString s) =
@@ -62,7 +62,7 @@ module BmpStringTest =
     actual = expected
 
   open Helper
-  
+
   let monoid = BmpString.monoid
   let mempty = monoid.Mempty
   let mappend x y = monoid.Mappend(x, y)

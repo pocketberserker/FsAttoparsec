@@ -55,7 +55,7 @@ module Binary =
     takeWhile1 BinaryArray.monoid BinaryArray.takeWhile BinaryArray.length BinaryArray.skip p
 
   let scan s p = scan BinaryArray.monoid BinaryArray.head BinaryArray.tail BinaryArray.take BinaryArray.length BinaryArray.skip s p
-  
+
   let parse p (Bin init) = parse BinaryArray.skip BinaryArray.monoid p init
 
   let endOfInput = endOfInput BinaryArray.length

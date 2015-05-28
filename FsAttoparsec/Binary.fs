@@ -51,12 +51,12 @@ type BinaryArray(array: byte [], offset: int, count: int) =
     if o = o' && l = l' && x = x' then 0
     elif x = x' then
       if o = o' then if l < l' then -1 else 1
-      else if o < o' then -1 else 1 
+      else if o < o' then -1 else 1
     else
       let left, right = x.[o .. (o + l - 1)], x'.[o' .. (o' + l' - 1)]
       if left = right then 0 elif left < right then -1 else 1
 
-  override x.Equals(other) = 
+  override x.Equals(other) =
     match other with
     | :? BinaryArray as other' -> BinaryArray.Compare(x, other') = 0
     | _ -> false
@@ -65,20 +65,20 @@ type BinaryArray(array: byte [], offset: int, count: int) =
 
   member x.GetEnumerator() =
     if x.Count = 0 then
-      { new IEnumerator<_> with 
+      { new IEnumerator<_> with
           member self.Current = invalidOp "!"
         interface System.Collections.IEnumerator with
           member self.Current = invalidOp "!"
           member self.MoveNext() = false
           member self.Reset() = ()
-        interface System.IDisposable with 
+        interface System.IDisposable with
           member self.Dispose() = () }
     else
       let segment = x.Array
       let minIndex = x.Offset
       let maxIndex = x.Offset + x.Count - 1
       let currentIndex = ref <| minIndex - 1
-      { new IEnumerator<_> with 
+      { new IEnumerator<_> with
           member self.Current =
             if !currentIndex < minIndex then
               invalidOp "Enumeration has not started. Call MoveNext."
@@ -92,13 +92,13 @@ type BinaryArray(array: byte [], offset: int, count: int) =
             elif !currentIndex > maxIndex then
               invalidOp "Enumeration already finished."
             else box segment.[!currentIndex]
-          member self.MoveNext() = 
+          member self.MoveNext() =
             if !currentIndex < maxIndex then
               incr currentIndex
               true
             else false
           member self.Reset() = currentIndex := minIndex - 1
-        interface System.IDisposable with 
+        interface System.IDisposable with
           member self.Dispose() = () }
 
   interface System.IComparable with
@@ -137,11 +137,11 @@ module BinaryArray =
 
   let toList (bs:BinaryArray) = List.ofSeq bs
 
-  let isEmpty (bs:BinaryArray) = 
+  let isEmpty (bs:BinaryArray) =
     Contract.Requires(bs.Count >= 0)
     bs.Count <= 0
 
-  let length (bs:BinaryArray) = 
+  let length (bs:BinaryArray) =
     Contract.Requires(bs.Count >= 0)
     bs.Count
 
@@ -158,8 +158,8 @@ module BinaryArray =
     Contract.Requires(bs.Count >= 1)
     if bs.Count = 1 then empty
     else BinaryArray(bs.Array, bs.Offset + 1, bs.Count - 1)
-    
-  let append a b = 
+
+  let append a b =
     if isEmpty a then b
     elif isEmpty b then a
     else
@@ -169,20 +169,20 @@ module BinaryArray =
       Buffer.BlockCopy(x, o, buffer, 0, l)
       Buffer.BlockCopy(x', o', buffer, l, l')
       BinaryArray(buffer, 0, l+l')
-    
+
   let cons hd (bs:BinaryArray) =
     let hd = singleton hd
     if length bs = 0 then hd
     else append hd bs
-    
+
   let fold f seed bs =
     let rec loop bs acc =
-      if isEmpty bs then acc 
+      if isEmpty bs then acc
       else
         let hd, tl = head bs, tail bs
         loop tl (f acc hd)
     loop bs seed
-  
+
   let split pred (bs:BinaryArray) =
     if isEmpty bs then empty, empty
     else
@@ -192,9 +192,9 @@ module BinaryArray =
         let count = index - bs.Offset
         BinaryArray(bs.Array, bs.Offset, count),
         BinaryArray(bs.Array, index, bs.Count - count)
-    
+
   let span pred bs = split (not << pred) bs
-    
+
   let splitAt n (bs:BinaryArray) =
     Contract.Requires(n >= 0)
     if isEmpty bs then empty, empty
@@ -203,18 +203,18 @@ module BinaryArray =
     else
       let x,o,l = bs.Array, bs.Offset, bs.Count
       BinaryArray(x, o, n), BinaryArray(x, o + n, l - n)
-    
+
   let skip n bs = splitAt n bs |> snd
 
   let skipWhile pred bs = span pred bs |> snd
 
   let skipUntil pred bs = split pred bs |> snd
 
-  let take n bs = splitAt n bs |> fst 
+  let take n bs = splitAt n bs |> fst
 
   let takeWhile pred bs = span pred bs |> fst
 
-  let takeUntil pred bs = split pred bs |> fst 
+  let takeUntil pred bs = split pred bs |> fst
 
   let range pos n ba = take n (skip pos ba)
 

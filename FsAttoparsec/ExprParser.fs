@@ -3,7 +3,7 @@
 // port from http://hackage.haskell.org/package/parsec-3.1.5/docs/src/Text-Parsec-Expr.html
 
 module Expr =
-  
+
   type Assoc =
     | AssocNone
     | AssocLeft
@@ -81,5 +81,5 @@ module Expr =
         return!
           rassocP x <|> lassocP  x <|> nassocP x <|> ok x <?> "operator"
       })
-    
+
     (List.fold makeParser simpleExpr operators).Value

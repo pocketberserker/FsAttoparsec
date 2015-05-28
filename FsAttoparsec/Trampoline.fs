@@ -5,20 +5,20 @@ type TrampolineT<'T> =
   | ReturnValue of ReturnT<'T>
   | BindValue of IBind<'T>
 
-and ITrampoline<'T> = 
+and ITrampoline<'T> =
   abstract member Value : TrampolineT<'T>
-  
+
 and DelayT<'T>(f : unit -> ITrampoline<'T>) =
    member this.Func = f
    interface ITrampoline<'T> with
      member this.Value = DelayValue this
- 
+
 and ReturnT<'T>(x :'T) =
   member this.Value = x
   interface ITrampoline<'T> with
     member this.Value = ReturnValue this
- 
-and IBind<'T> = 
+
+and IBind<'T> =
   abstract Bind<'U> : ('T -> ITrampoline<'U>) -> ITrampoline<'U>
 and BindT<'T, 'U>(t: TrampolineT<'T>, f : ('T -> ITrampoline<'U>)) =
   member this.Func = f

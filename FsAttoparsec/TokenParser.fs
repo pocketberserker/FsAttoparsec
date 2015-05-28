@@ -205,7 +205,7 @@ module Token =
     }
 
     let charLetter = satisfy (fun c -> (c <> '\'') && (c <> '\\') && (c > '\026'))
-    
+
     let characterChar = charLetter <|> charEscape <?> "literal character"
     let charLiteral languageDef =
       lexeme languageDef (between (pchar '\'') (pchar '\'' <?> "end of character") characterChar ) <?> "character"
@@ -264,7 +264,7 @@ module Token =
       let rec inner acc b =
         if b <= 0M then acc
         else pow (a * acc) (b - 1M)
-      pow 1M b 
+      pow 1M b
 
     let exponent' =
       let rec power e =
