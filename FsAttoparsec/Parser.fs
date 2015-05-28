@@ -32,7 +32,7 @@ module Internal =
 
 type Failure<'T, 'U> = State<'T> * string list * string -> ITrampoline<Internal.Result<'T, 'U>>
 type Success<'T, 'U, 'V> = State<'T> * 'U -> ITrampoline<Internal.Result<'T, 'V>>
-  
+
 type Parser<'T, 'U> =
   abstract member Apply: State<'T> * Failure<'T, 'V> * Success<'T, 'U, 'V> -> ITrampoline<Internal.Result<'T, 'V>>
 
@@ -119,9 +119,9 @@ module Parser =
   let asOpaque s p = AsOpaqueP<_, _>(p, s) :> Parser<_, _>
 
   let ok a = ReturnP<_, _>(a) :> Parser<_, _>
- 
+
   let error what = ErrorP<_, _>(what) :> Parser<_, _>
-  
+
   let zero<'T, 'U> : Parser<'T, 'U> = error "zero"
 
   let inline (>>=) p f = bind f p
@@ -129,10 +129,10 @@ module Parser =
   let inline (>>%) p x = p |>> (fun _ -> x)
 
   type ParserBuilder() =
-    member this.Zero() = zero
-    member this.Bind(x, f) = x >>= f
-    member this.Return(x) = ok x
-    member this.ReturnFrom(x) = x
+    member inline this.Zero() = zero
+    member inline this.Bind(x, f) = x >>= f
+    member inline this.Return(x) = ok x
+    member inline this.ReturnFrom(x) = x
 
   let parser = ParserBuilder()
 
@@ -185,7 +185,7 @@ module Parser =
     with
       interface Parser<'T, 'U> with
         member this.Apply(st0, kf, ks) = m.Apply(st0, kf, fun (st1, a) -> n.Apply(st1, kf, fun (st2, b) -> ks (st2, a)))
-  
+
   let (.>>) (m: Parser<_, _>) (n: Parser<_, _>) = LeftP<_, _, _>(m, n) :> Parser<_, _>
 
   type private EnsureSuspendedP<'T when 'T : equality>(length: 'T -> int, sub: int -> int -> 'T -> 'T, st: State<'T>, n: int) =
@@ -336,9 +336,9 @@ module Parser =
             demandInput.Apply(st0, kf, ks)
 
   let endOfInput length = EndOfInputP<_>(length) :> Parser<_, unit>
-  
+
   let phrase length p = p .>> endOfInput length |> as_ ("phrase" + p.ToString())
- 
+
   type private ConsP<'T, 'U, 'V, 'W>(m: Parser<'T, 'U>, n: unit -> Parser<'T, 'V>, cons: 'U -> 'V -> 'W) =
     override x.ToString() =  "(" + m.ToString() + ") :: (" + (n ()).ToString() + ")"
     with
@@ -414,7 +414,7 @@ module Parser =
   let manyTill (monoid: Monoid<_>) inputCons p q =
     let rec scan = lazy (q >>. ok monoid.Mempty <|> Lazy.cons inputCons p scan)
     scan.Value |> as_ ("manyTill(" + p.ToString() + "," + q.ToString() + ")")
-  
+
   let skipMany p =
     let rec scan = lazy (Lazy.(>>.) p scan <|> ok ())
     scan.Value |> as_ ("skipMany(" + p.ToString() + ")")

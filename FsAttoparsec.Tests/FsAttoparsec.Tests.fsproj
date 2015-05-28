@@ -73,11 +73,11 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="FsCheck.NUnit">
-      <HintPath>..\packages\FsCheck.NUnit.2.0.1\lib\net45\FsCheck.NUnit.dll</HintPath>
+      <HintPath>..\packages\FsCheck.Nunit.2.0.1\lib\net45\FsCheck.NUnit.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FsCheck.NUnit.Addin">
-      <HintPath>..\packages\FsCheck.NUnit.2.0.1\lib\net45\FsCheck.NUnit.Addin.dll</HintPath>
+      <HintPath>..\packages\FsCheck.Nunit.2.0.1\lib\net45\FsCheck.NUnit.Addin.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSharp.Core">
