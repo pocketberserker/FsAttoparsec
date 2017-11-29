@@ -1,6 +1,5 @@
 ﻿namespace Attoparsec
 
-open System.Diagnostics.Contracts
 open Helper
 
 module Binary =
