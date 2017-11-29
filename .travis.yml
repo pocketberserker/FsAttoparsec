@@ -10,7 +10,7 @@ solution: FsAttoparsec.sln
 
 install:
   - nuget install NUnit.Console -Version 3.7.0 -OutputDirectory packages -ExcludeVersion
-
+  - msbuild /t:restore FsAttoparsec.sln
 script:
   - msbuild ./FsAttoparsec.sln /p:Configuration=${CONFIGURATION}
   - mono ./packages/NUnit.ConsoleRunner/tools/nunit3-console.exe ./FsAttoparsec.Tests/bin/${CONFIGURATION}/net452/FsAttoparsec.Tests.dll
