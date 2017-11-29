@@ -35,10 +35,12 @@ limitations under the License.
 open System
 open System.Collections
 open System.Collections.Generic
-open System.Diagnostics.Contracts
 
 // BMP: Basic Multilingual Plane
-[<CustomEquality; CustomComparison; SerializableAttribute; StructAttribute>]
+[<CustomEquality; CustomComparison; StructAttribute>]
+#if ! NETSTANDARD1_6
+[<Serializable>]
+#endif
 type BmpString(array: char[], offset: int, count: int) =
   new (array: char[]) = BmpString(array, 0, array.Length)
 

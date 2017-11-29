@@ -1,7 +1,11 @@
 branches:
   except:
     - gh-pages
-
+image: Visual Studio 2017
+build_script:
+  - msbuild /p:Configuration=Release FsAttoparsec.sln
+before_build:
+  - msbuild /t:restore FsAttoparsec.sln
 skip_tags: true
 
 skip_commits:
@@ -12,6 +16,5 @@ clone_depth: 50
 configuration:
   - Release
 
-test:
-  assemblies:
-    - '*\*.Tests.dll'
+test_script:
+  - dotnet test --configuration Release FsAttoparsec.Tests/

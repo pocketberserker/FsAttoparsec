@@ -35,9 +35,11 @@ limitations under the License.
 open System
 open System.Collections
 open System.Collections.Generic
-open System.Diagnostics.Contracts
 
-[<CustomEquality; CustomComparison; Serializable; Struct>]
+[<CustomEquality; CustomComparison; Struct>]
+#if ! NETSTANDARD1_6
+[<Serializable>]
+#endif
 type BinaryArray(array: byte [], offset: int, count: int) =
   new (array: byte []) = BinaryArray(array, 0, array.Length)
 

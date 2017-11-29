@@ -1,8 +1,10 @@
 ﻿namespace FsCheck.NUnit
 
-open NUnit.Core.Extensibility
+// open NUnit.Core.Extensibility
 open FsCheck
-open FsCheck.NUnit.Addin
+//open FsCheck.NUnit.Addin
+(*
+?  https://github.com/nunit/docs/wiki/Addin-Replacement-in-the-Framework
 
 [<NUnitAddin(Description = "FsCheck addin")>]
 type FsCheckAddin() =
@@ -11,7 +13,7 @@ type FsCheckAddin() =
       let tcBuilder = new FsCheckTestCaseBuilder()
       host.GetExtensionPoint("TestCaseBuilders").Install(tcBuilder)
       true
-
+*)
 module TestHelper =
 
   let (|NonNullString|) (str: NonNull<string>) = str.Get

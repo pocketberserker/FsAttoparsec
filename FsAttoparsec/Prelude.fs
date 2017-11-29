@@ -11,3 +11,7 @@ module List =
     member this.Mappend(x, y) = List.append x y }
 
   let cons x xs = x :: xs
+
+module internal Contract=
+  let Requires x = 
+    if not x then failwith "Requires!" else ()

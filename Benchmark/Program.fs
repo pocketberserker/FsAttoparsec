@@ -1,4 +1,4 @@
-﻿module Benchmark
+﻿module Benchmark.Program
 
 open System.IO
 open System.Diagnostics
