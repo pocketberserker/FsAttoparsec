@@ -2,7 +2,7 @@ branches:
   except:
     - gh-pages
 image: Visual Studio 2017
-build:
+build_script:
   - msbuild /p:Configuration=Release FsAttoparsec.sln
 before_build:
   - msbuild /t:restore FsAttoparsec.sln
