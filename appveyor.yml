@@ -6,7 +6,7 @@ build:
   project: FsAttoparsec.sln
   verbosity: minimal
 before_build:
-  - msbuild /t:restore src
+  - msbuild /t:restore FsAttoparsec.sln
 skip_tags: true
 
 skip_commits:
