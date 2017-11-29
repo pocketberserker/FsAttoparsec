@@ -17,4 +17,4 @@ configuration:
   - Release
 
 test_script:
-  - dotnet test --configuration Release src/Tests
+  - dotnet test --configuration Release FsAttoparsec.Tests/
